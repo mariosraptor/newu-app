@@ -1,159 +1,339 @@
-import { useState } from 'react';
-import { Send, Cpu } from 'lucide-react';
-import { useStealth } from '../../contexts/StealthContext';
+import { useState, useEffect, useRef } from 'react';
+import { Send, Sparkles } from 'lucide-react';
+import Anthropic from '@anthropic-ai/sdk';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Message {
   id: string;
-  role: 'user' | 'nova';
+  role: 'user' | 'assistant';
   content: string;
-  timestamp: Date;
+  timestamp: string; // ISO string so it survives JSON round-trip
 }
 
-const novaResponses: Record<string, string> = {
-  greeting:
-    "I'm Nova, your Performance Engineer. I analyze system interference patterns and optimize neuro-resilience. How can I calibrate your baseline today?",
-  slip: "I've detected a calibration error. Let's collect pre-event metadata: Who were you with? Where were you? What time? This data improves your resistance map.",
-  craving:
-    'System lag detected. Run immediate diagnostics: 1) Rate craving intensity 1-10. 2) Identify trigger category. 3) Execute somatic reset protocol.',
-  milestone:
-    'Excellent system stability metrics. Your dopamine regulation shows 28% improvement. Continue current optimization protocols.',
-  boredom:
-    "Pattern detected: System idle state. Boredom is not a feeling - it's unallocated processing power. Deploy a high-value activity within 90 seconds.",
-  default:
-    "I'm analyzing your query. Please provide more system context: trigger type, time of day, or specific interference pattern you're experiencing.",
-};
+interface UserContext {
+  firstName: string;
+  addictions: string[];
+  daysClean: number;
+  quitDate: string;
+  myWhy: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const HISTORY_KEY = 'newu_nova_history';
+
+function loadUserContext(): UserContext {
+  let firstName = '';
+  let addictions: string[] = [];
+  let daysClean = 0;
+  let quitDate = '';
+  let myWhy = '';
+
+  try {
+    const details = localStorage.getItem('personal_details');
+    if (details) {
+      const d = JSON.parse(details);
+      firstName = d.firstName || '';
+    }
+  } catch {}
+
+  try {
+    const onboarding = localStorage.getItem('onboardingData');
+    if (onboarding) {
+      const o = JSON.parse(onboarding);
+      addictions = o.addictions || [];
+      myWhy = o.myWhy || '';
+      if (o.quitDate) {
+        quitDate = o.quitDate;
+        daysClean = Math.max(
+          0,
+          Math.floor((Date.now() - new Date(o.quitDate).getTime()) / (1000 * 60 * 60 * 24))
+        );
+      }
+    }
+  } catch {}
+
+  return { firstName, addictions, daysClean, quitDate, myWhy };
+}
+
+function buildSystemPrompt(ctx: UserContext): string {
+  const base = `You are Nova, a warm and compassionate AI companion for someone on their addiction recovery journey. You are not a therapist or clinical tool — you are a caring friend who has been through it. You know the user's journey, celebrate their wins, and support them through cravings without judgment. Never be preachy. Never shame. Always warm, honest and human. Keep responses concise — 2-4 sentences max unless the user needs more.`;
+
+  const lines: string[] = [];
+
+  if (ctx.firstName) lines.push(`The user's name is ${ctx.firstName}.`);
+  if (ctx.addictions.length) lines.push(`They are recovering from: ${ctx.addictions.join(', ')}.`);
+  if (ctx.daysClean > 0) lines.push(`They are currently ${ctx.daysClean} day(s) clean.`);
+  if (ctx.quitDate) lines.push(`Their quit date was ${new Date(ctx.quitDate).toLocaleDateString()}.`);
+  if (ctx.myWhy) lines.push(`Their core reason for quitting ("My Why"): "${ctx.myWhy}".`);
+
+  return lines.length > 0
+    ? `${base}\n\nUser context:\n${lines.join('\n')}`
+    : base;
+}
+
+function generateWelcome(ctx: UserContext): string {
+  const name = ctx.firstName ? ` ${ctx.firstName}` : '';
+  if (ctx.daysClean > 0) {
+    return `Hey${name} 💙 ${ctx.daysClean} day${ctx.daysClean === 1 ? '' : 's'} — that's real. I'm here whenever you need to talk. How are you feeling today?`;
+  }
+  return `Hey${name} 💙 I'm Nova, your recovery companion. I'm here for you on the good days, the hard days, and everything in between. How are you doing right now?`;
+}
+
+function loadHistory(): Message[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (raw) return JSON.parse(raw) as Message[];
+  } catch {}
+  return [];
+}
+
+function saveHistory(messages: Message[]) {
+  try {
+    // Keep the last 100 messages to avoid quota issues
+    const trimmed = messages.slice(-100);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+  } catch {}
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export function NovaTab() {
-  const { getTerminology } = useStealth();
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'nova',
-      content: novaResponses.greeting,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const detectIntent = (text: string): string => {
-    const lower = text.toLowerCase();
-    if (lower.includes('slip') || lower.includes('relapse') || lower.includes('gave in')) return 'slip';
-    if (lower.includes('crav') || lower.includes('urge') || lower.includes('want')) return 'craving';
-    if (
-      lower.includes('milestone') ||
-      lower.includes('progress') ||
-      lower.includes('achievement') ||
-      lower.includes('days')
-    )
-      return 'milestone';
-    if (lower.includes('bored') || lower.includes('nothing to do')) return 'boredom';
-    return 'default';
-  };
+  // Initialise: load persisted history or show welcome
+  useEffect(() => {
+    const history = loadHistory();
+    if (history.length > 0) {
+      setMessages(history);
+    } else {
+      const ctx = loadUserContext();
+      const welcome: Message = {
+        id: 'welcome',
+        role: 'assistant',
+        content: generateWelcome(ctx),
+        timestamp: new Date().toISOString(),
+      };
+      setMessages([welcome]);
+    }
+  }, []);
 
-  const sendMessage = () => {
-    if (!input.trim()) return;
+  // Auto-scroll on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input,
-      timestamp: new Date(),
-    };
+  const sendMessage = async () => {
+    if (!input.trim() || isStreaming) return;
 
-    const intent = detectIntent(input);
-    const novaMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: 'nova',
-      content: novaResponses[intent],
-      timestamp: new Date(),
-    };
-
-    setMessages([...messages, userMessage, novaMessage]);
+    const userText = input.trim();
     setInput('');
+
+    const userMsg: Message = {
+      id: `u-${Date.now()}`,
+      role: 'user',
+      content: userText,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Build API history: exclude the static welcome message, include all real turns
+    const apiMessages: Anthropic.MessageParam[] = [
+      ...messages
+        .filter((m) => m.id !== 'welcome' && m.content.trim().length > 0)
+        .map((m) => ({ role: m.role, content: m.content })),
+      { role: 'user', content: userText },
+    ];
+
+    // Add the user message and an empty Nova placeholder
+    const novaId = `a-${Date.now()}`;
+    const novaPlaceholder: Message = {
+      id: novaId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date().toISOString(),
+    };
+
+    const withUserMsg = [...messages, userMsg, novaPlaceholder];
+    setMessages(withUserMsg);
+    setIsStreaming(true);
+
+    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
+
+    if (!apiKey) {
+      const errMsg: Message = {
+        ...novaPlaceholder,
+        content: "I can't connect right now — VITE_ANTHROPIC_API_KEY is not set. Add it to your .env file and restart.",
+      };
+      const final = withUserMsg.map((m) => (m.id === novaId ? errMsg : m));
+      setMessages(final);
+      saveHistory(final);
+      setIsStreaming(false);
+      return;
+    }
+
+    try {
+      const client = new Anthropic({
+        apiKey,
+        dangerouslyAllowBrowser: true,
+      });
+
+      const ctx = loadUserContext();
+      let fullText = '';
+
+      const stream = client.messages.stream({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1024,
+        system: buildSystemPrompt(ctx),
+        messages: apiMessages,
+      });
+
+      for await (const event of stream) {
+        if (
+          event.type === 'content_block_delta' &&
+          event.delta.type === 'text_delta'
+        ) {
+          fullText += event.delta.text;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === novaId ? { ...m, content: fullText } : m))
+          );
+        }
+      }
+
+      // Persist after streaming completes
+      const finalMessages = withUserMsg.map((m) =>
+        m.id === novaId ? { ...m, content: fullText || "I'm here. What's on your mind?" } : m
+      );
+      setMessages(finalMessages);
+      saveHistory(finalMessages);
+    } catch (err) {
+      console.error('Nova error:', err);
+      const errorContent =
+        err instanceof Anthropic.AuthenticationError
+          ? 'Invalid API key. Check your VITE_ANTHROPIC_API_KEY in .env.'
+          : err instanceof Anthropic.RateLimitError
+          ? "I'm getting a lot of messages right now. Give me a moment and try again."
+          : "Something went wrong on my end. Try again in a second.";
+
+      const errFinal = withUserMsg.map((m) =>
+        m.id === novaId ? { ...m, content: errorContent } : m
+      );
+      setMessages(errFinal);
+      saveHistory(errFinal);
+    } finally {
+      setIsStreaming(false);
+      inputRef.current?.focus();
+    }
   };
 
   const quickActions = [
-    { label: `Log ${getTerminology('Trigger')}`, query: 'I experienced a trigger' },
-    { label: 'System Status', query: 'How am I doing?' },
-    { label: 'Need Support', query: 'I need help staying strong' },
+    { label: "I'm craving right now", query: "I'm having a craving right now. Help me get through it." },
+    { label: 'How am I doing?', query: 'How am I doing on my recovery journey?' },
+    { label: 'I had a slip', query: "I gave in and slipped. I feel terrible about it." },
   ];
 
   return (
     <div className="flex-1 flex flex-col bg-gradient-to-b from-[#001F3F] to-[#003366]">
-      <div className="bg-[#001F3F] border-b border-white/10 px-4 py-4">
+      {/* Header */}
+      <div className="bg-[#001F3F] border-b border-white/10 px-4 py-4 flex-shrink-0">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center">
-            <Cpu className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+            <Sparkles className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-white font-medium text-lg">Nova</h1>
-            <p className="text-white/60 text-sm">Performance Engineer</p>
+            <h1 className="text-white font-semibold text-lg">Nova</h1>
+            <p className="text-white/50 text-xs">Your recovery companion · Always here</p>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 pb-32">
-        <div className="max-w-2xl mx-auto space-y-4">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-6">
+        <div className="max-w-2xl mx-auto space-y-4 pb-4">
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
+              {/* Nova avatar */}
+              {message.role === 'assistant' && (
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl flex items-center justify-center flex-shrink-0 mb-1 shadow-sm shadow-blue-500/20">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+              )}
+
               <div
-                className={`max-w-[80%] rounded-2xl px-5 py-3 ${
+                className={`max-w-[78%] rounded-2xl px-4 py-3 ${
                   message.role === 'user'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white/10 backdrop-blur-lg text-white border border-white/20'
+                    ? 'bg-blue-500 text-white rounded-br-sm'
+                    : 'bg-white/10 backdrop-blur-sm text-white border border-white/10 rounded-bl-sm'
                 }`}
               >
-                {message.role === 'nova' && (
-                  <div className="flex items-center gap-2 mb-2">
-                    <Cpu className="w-4 h-4 text-cyan-400" />
-                    <span className="text-cyan-400 text-xs font-medium uppercase tracking-wider">Nova</span>
+                {message.content ? (
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+                ) : (
+                  /* Typing indicator */
+                  <div className="flex items-center gap-1 py-1">
+                    <span className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
                 )}
-                <p className="text-sm leading-relaxed">{message.content}</p>
-                <div className="text-xs opacity-60 mt-2">
-                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <div className="text-[10px] opacity-40 mt-1 text-right">
+                  {new Date(message.timestamp).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </div>
               </div>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
       </div>
 
-      <div className="fixed bottom-20 left-0 right-0 bg-[#001F3F]/95 backdrop-blur-lg border-t border-white/10 px-4 py-4">
+      {/* Input area */}
+      <div className="flex-shrink-0 bg-[#001F3F]/95 backdrop-blur-lg border-t border-white/10 px-4 py-4 pb-24">
         <div className="max-w-2xl mx-auto">
-          <div className="flex gap-2 mb-3 overflow-x-auto">
+          {/* Quick actions */}
+          <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
             {quickActions.map((action) => (
               <button
                 key={action.label}
                 onClick={() => {
                   setInput(action.query);
-                  setTimeout(() => sendMessage(), 100);
+                  inputRef.current?.focus();
                 }}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-xl whitespace-nowrap transition-all border border-white/20"
+                disabled={isStreaming}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white/80 text-xs rounded-full whitespace-nowrap transition-all border border-white/10 flex-shrink-0"
               >
                 {action.label}
               </button>
             ))}
           </div>
 
+          {/* Text input */}
           <div className="flex gap-2">
             <input
+              ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-              placeholder="Describe system status or interference..."
-              className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-blue-500"
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+              placeholder="Talk to Nova..."
+              disabled={isStreaming}
+              className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-400/60 disabled:opacity-50 transition-colors"
             />
             <button
               onClick={sendMessage}
-              disabled={!input.trim()}
-              className="px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-white/10 disabled:text-white/40 text-white rounded-xl transition-all"
+              disabled={!input.trim() || isStreaming}
+              className="w-12 h-12 flex items-center justify-center bg-blue-500 hover:bg-blue-400 disabled:bg-white/10 disabled:text-white/30 text-white rounded-2xl transition-all flex-shrink-0"
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-4 h-4" />
             </button>
           </div>
         </div>
