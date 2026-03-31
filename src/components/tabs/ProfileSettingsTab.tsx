@@ -1,8 +1,112 @@
 import { useState, useEffect, useRef } from 'react';
-import { User, LogOut, Shield, Bell, Crown, Camera, Save, Share2, Copy, Users } from 'lucide-react';
+import { User, LogOut, Shield, Bell, Crown, Camera, Save, Share2, Copy, Users, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStealth } from '../../contexts/StealthContext';
+
+// ─── World countries ───────────────────────────────────────────────────────────
+
+const WORLD_COUNTRIES = [
+  "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda",
+  "Argentina","Armenia","Australia","Austria","Azerbaijan","Bahamas","Bahrain",
+  "Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bhutan",
+  "Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria",
+  "Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada",
+  "Central African Republic","Chad","Chile","China","Colombia","Comoros",
+  "Congo (DRC)","Congo (Republic)","Costa Rica","Croatia","Cuba","Cyprus",
+  "Czech Republic","Denmark","Djibouti","Dominica","Dominican Republic",
+  "Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia",
+  "Eswatini","Ethiopia","Fiji","Finland","France","Gabon","Gambia","Georgia",
+  "Germany","Ghana","Greece","Grenada","Guatemala","Guinea","Guinea-Bissau",
+  "Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran",
+  "Iraq","Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan",
+  "Kenya","Kiribati","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho",
+  "Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Madagascar",
+  "Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania",
+  "Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro",
+  "Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands",
+  "New Zealand","Nicaragua","Niger","Nigeria","North Korea","North Macedonia",
+  "Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea",
+  "Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania",
+  "Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia",
+  "Saint Vincent and the Grenadines","Samoa","San Marino",
+  "São Tomé and Príncipe","Saudi Arabia","Senegal","Serbia","Seychelles",
+  "Sierra Leone","Singapore","Slovakia","Slovenia","Solomon Islands","Somalia",
+  "South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan",
+  "Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania",
+  "Thailand","Timor-Leste","Togo","Tonga","Trinidad and Tobago","Tunisia",
+  "Turkey","Turkmenistan","Tuvalu","Uganda","Ukraine","United Arab Emirates",
+  "United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu",
+  "Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe",
+];
+
+// ─── Notification helpers ──────────────────────────────────────────────────────
+
+interface NotifPrefs {
+  enabled: boolean;
+  time: string;          // "HH:MM"
+  lastShownDate: string; // "YYYY-MM-DD"
+}
+
+const NOTIF_KEY = 'newu_notif_prefs';
+
+function loadNotifPrefs(): NotifPrefs {
+  try {
+    const raw = localStorage.getItem(NOTIF_KEY);
+    if (raw) return JSON.parse(raw) as NotifPrefs;
+  } catch {}
+  return { enabled: false, time: '09:00', lastShownDate: '' };
+}
+
+function saveNotifPrefs(prefs: NotifPrefs) {
+  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(prefs)); } catch {}
+}
+
+function getQuitDate(): string | null {
+  try {
+    const raw = localStorage.getItem('onboardingData');
+    if (raw) { const d = JSON.parse(raw); return d.quitDate ?? null; }
+  } catch {}
+  return null;
+}
+
+export function checkAndSendDailyNotification() {
+  try {
+    if (!('Notification' in window)) return;
+    const prefs = loadNotifPrefs();
+    if (!prefs.enabled || Notification.permission !== 'granted') return;
+
+    const today = new Date().toISOString().split('T')[0];
+    if (prefs.lastShownDate === today) return;
+
+    const [h, m] = prefs.time.split(':').map(Number);
+    const now = new Date();
+    if (now.getHours() < h || (now.getHours() === h && now.getMinutes() < m)) return;
+
+    const quitDate = getQuitDate();
+    const daysClean = quitDate
+      ? Math.max(0, Math.floor((Date.now() - new Date(quitDate).getTime()) / 86_400_000))
+      : 0;
+
+    const messages = [
+      `Day ${daysClean} — You're still here. That takes courage. 💙`,
+      `Your body has been healing for ${daysClean} day${daysClean !== 1 ? 's' : ''}. Keep going. 🌱`,
+      `Nova is thinking of you. How are you feeling today?`,
+      `${daysClean} day${daysClean !== 1 ? 's' : ''} strong. You're doing something remarkable. ⭐`,
+      `Check in with yourself today. ${daysClean} days and counting. Keep going.`,
+    ];
+
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86_400_000);
+    const body = messages[dayOfYear % messages.length];
+
+    new Notification('NewU — Daily Check-in', { body, icon: '/favicon.ico' });
+
+    prefs.lastShownDate = today;
+    saveNotifPrefs(prefs);
+  } catch {}
+}
+
+// ─── Profile settings component ───────────────────────────────────────────────
 
 interface PersonalDetails {
   firstName: string;
@@ -35,6 +139,7 @@ export function ProfileSettingsTab() {
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const photoInputRef = useRef<HTMLInputElement>(null);
+
   const [personalDetails, setPersonalDetails] = useState<PersonalDetails>({
     firstName: '',
     lastName: '',
@@ -47,18 +152,24 @@ export function ProfileSettingsTab() {
     country: 'United States',
   });
 
+  // Notification state
+  const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>(() => loadNotifPrefs());
+  const [notifMessage, setNotifMessage] = useState<{ text: string; type: 'success' | 'error' | 'info' } | null>(null);
+
   useEffect(() => {
-    if (user) {
-      loadData();
-    }
+    if (user) loadData();
   }, [user]);
+
+  // Check and send daily notification on tab open
+  useEffect(() => {
+    checkAndSendDailyNotification();
+  }, []);
 
   const loadData = async () => {
     if (!user) return;
 
     const emailFallback = user.email?.split('@')[0] || 'User';
 
-    // Load personal details from localStorage first
     let details = personalDetails;
     try {
       const stored = localStorage.getItem('personal_details');
@@ -68,11 +179,9 @@ export function ProfileSettingsTab() {
       }
     } catch {}
 
-    // Load profile photo
     const storedPhoto = localStorage.getItem('profile_photo');
     if (storedPhoto) setProfilePhoto(storedPhoto);
 
-    // Try to get display_name from Supabase profiles
     try {
       const { data: profileData } = await supabase
         .from('profiles')
@@ -80,7 +189,6 @@ export function ProfileSettingsTab() {
         .eq('id', user.id)
         .maybeSingle();
 
-      // Priority: personal details firstName > profiles.display_name > email prefix
       if (details.firstName.trim()) {
         setDisplayName(deriveDisplayName(details, emailFallback));
       } else if (profileData?.display_name) {
@@ -107,34 +215,24 @@ export function ProfileSettingsTab() {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
-
-    // Reset so the same file can be re-selected
     if (photoInputRef.current) photoInputRef.current.value = '';
 
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64 = reader.result as string;
       setProfilePhoto(base64);
-      try {
-        localStorage.setItem('profile_photo', base64);
-      } catch {
-        console.error('Failed to save profile photo (storage quota exceeded)');
-      }
+      try { localStorage.setItem('profile_photo', base64); } catch {}
     };
     reader.readAsDataURL(file);
   };
 
   const handleSaveDetails = async () => {
-    try {
-      localStorage.setItem('personal_details', JSON.stringify(personalDetails));
-    } catch {}
+    try { localStorage.setItem('personal_details', JSON.stringify(personalDetails)); } catch {}
 
-    // Update displayed name to reflect saved personal details
     const emailFallback = user?.email?.split('@')[0] || 'User';
     const newName = deriveDisplayName(personalDetails, emailFallback);
     setDisplayName(newName);
 
-    // Also persist to Supabase so it survives across devices
     if (user && personalDetails.firstName.trim()) {
       try {
         await supabase
@@ -148,10 +246,72 @@ export function ProfileSettingsTab() {
     setTimeout(() => setSaveMessage(''), 2000);
   };
 
-  // Clipboard with fallback for older WebViews (Android)
+  // ─── Notifications ───────────────────────────────────────────────────────────
+
+  const handleToggleNotifications = async (enable: boolean) => {
+    if (!('Notification' in window)) {
+      setNotifMessage({ text: "Your browser doesn't support notifications.", type: 'error' });
+      return;
+    }
+
+    if (enable) {
+      const permission = await Notification.requestPermission();
+
+      if (permission === 'granted') {
+        const updated = { ...notifPrefs, enabled: true };
+        setNotifPrefs(updated);
+        saveNotifPrefs(updated);
+        setNotifMessage({
+          text: `Daily check-ins enabled for ${formatTime(updated.time)}. See you tomorrow 💙`,
+          type: 'success',
+        });
+        // Show a preview notification immediately
+        try {
+          new Notification('NewU — Notifications enabled!', {
+            body: "You'll receive a daily check-in at your chosen time.",
+            icon: '/favicon.ico',
+          });
+        } catch {}
+      } else if (permission === 'denied') {
+        setNotifMessage({
+          text: "Notifications blocked by your browser. To enable: tap the lock icon in your address bar → Notifications → Allow.",
+          type: 'error',
+        });
+      } else {
+        setNotifMessage({
+          text: 'Permission dismissed. Tap the toggle again when you\'re ready.',
+          type: 'info',
+        });
+      }
+    } else {
+      const updated = { ...notifPrefs, enabled: false };
+      setNotifPrefs(updated);
+      saveNotifPrefs(updated);
+      setNotifMessage(null);
+    }
+  };
+
+  const handleTimeChange = (time: string) => {
+    const updated = { ...notifPrefs, time };
+    setNotifPrefs(updated);
+    saveNotifPrefs(updated);
+    if (notifPrefs.enabled) {
+      setNotifMessage({ text: `Daily check-in time updated to ${formatTime(time)} 💙`, type: 'success' });
+      setTimeout(() => setNotifMessage(null), 3000);
+    }
+  };
+
+  function formatTime(time: string): string {
+    const [h, m] = time.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+  }
+
+  // ─── Clipboard / share ───────────────────────────────────────────────────────
+
   const handleCopyInviteLink = async () => {
     const inviteText = `I'm using NewU to become someone new. Join me at ${window.location.origin}`;
-
     let copied = false;
     try {
       if (navigator.clipboard?.writeText) {
@@ -161,7 +321,6 @@ export function ProfileSettingsTab() {
     } catch {}
 
     if (!copied) {
-      // Fallback: create a temporary textarea and use execCommand
       try {
         const ta = document.createElement('textarea');
         ta.value = inviteText;
@@ -178,14 +337,13 @@ export function ProfileSettingsTab() {
       setShowCopiedMessage(true);
       setTimeout(() => setShowCopiedMessage(false), 2000);
     } else {
-      // Last resort: show the text so the user can copy manually
       alert(`Copy this link:\n\n${inviteText}`);
     }
   };
 
   const handleShareWhatsApp = () => {
-    const whatsappText = encodeURIComponent("I'm using NewU to become someone new. Join me!");
-    window.open(`https://wa.me/?text=${whatsappText}`, '_blank');
+    const text = encodeURIComponent("I'm using NewU to become someone new. Join me!");
+    window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
   const handleSignOut = async () => {
@@ -196,7 +354,7 @@ export function ProfileSettingsTab() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#001F3F]">
-        <div className="text-white">Loading...</div>
+        <div className="text-white">Loading…</div>
       </div>
     );
   }
@@ -205,7 +363,7 @@ export function ProfileSettingsTab() {
     <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#001F3F] to-[#003366] pb-20">
       <div className="max-w-2xl mx-auto px-4 py-8">
 
-        {/* Profile header with always-visible photo upload */}
+        {/* Profile header */}
         <div className="text-center mb-8">
           <div className="relative inline-block mb-4">
             <div className="w-24 h-24 bg-blue-500/20 rounded-full overflow-hidden border-2 border-blue-500/30">
@@ -217,7 +375,6 @@ export function ProfileSettingsTab() {
                 </div>
               )}
             </div>
-            {/* Always-visible camera badge — visible on both touch and mouse */}
             <label className="absolute bottom-0 right-0 w-8 h-8 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center border-2 border-[#001F3F] cursor-pointer transition-all">
               <input
                 ref={photoInputRef}
@@ -242,16 +399,14 @@ export function ProfileSettingsTab() {
 
         <div className="space-y-4">
 
-          {/* Refer a Friend — moved near top for visibility */}
+          {/* Refer a Friend */}
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
             <div className="p-4 border-b border-white/10 flex items-center gap-3">
               <Users className="w-5 h-5 text-blue-400" />
               <h2 className="text-white font-medium">Refer a Friend</h2>
             </div>
             <div className="p-4 space-y-3">
-              <p className="text-white/70 text-sm">
-                Help others on their journey to transformation
-              </p>
+              <p className="text-white/70 text-sm">Help others on their journey to transformation</p>
               <button
                 onClick={handleCopyInviteLink}
                 className="w-full flex items-center justify-center gap-2 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-all"
@@ -377,16 +532,9 @@ export function ProfileSettingsTab() {
                   onChange={(e) => setPersonalDetails({ ...personalDetails, country: e.target.value })}
                   className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-500"
                 >
-                  <option value="United States">United States</option>
-                  <option value="United Kingdom">United Kingdom</option>
-                  <option value="Canada">Canada</option>
-                  <option value="Australia">Australia</option>
-                  <option value="Germany">Germany</option>
-                  <option value="France">France</option>
-                  <option value="Spain">Spain</option>
-                  <option value="Italy">Italy</option>
-                  <option value="Netherlands">Netherlands</option>
-                  <option value="Other">Other</option>
+                  {WORLD_COUNTRIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
                 </select>
               </div>
 
@@ -410,7 +558,6 @@ export function ProfileSettingsTab() {
             <div className="p-4 border-b border-white/10">
               <h2 className="text-white font-medium">Privacy & Security</h2>
             </div>
-
             <button
               onClick={toggleStealthMode}
               className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-all"
@@ -426,40 +573,75 @@ export function ProfileSettingsTab() {
                   </div>
                 </div>
               </div>
-              <div
-                className={`w-12 h-7 rounded-full transition-all ${
-                  stealthMode ? 'bg-purple-500' : 'bg-white/20'
-                }`}
-              >
-                <div
-                  className={`w-5 h-5 bg-white rounded-full mt-1 transition-all ${
-                    stealthMode ? 'ml-6' : 'ml-1'
-                  }`}
-                />
+              <div className={`w-12 h-7 rounded-full transition-all ${stealthMode ? 'bg-purple-500' : 'bg-white/20'}`}>
+                <div className={`w-5 h-5 bg-white rounded-full mt-1 transition-all ${stealthMode ? 'ml-6' : 'ml-1'}`} />
               </div>
             </button>
           </div>
 
           {/* Notifications */}
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
-            <div className="p-4 border-b border-white/10">
-              <h2 className="text-white font-medium">Notifications</h2>
+            <div className="p-4 border-b border-white/10 flex items-center gap-3">
+              <Bell className="w-5 h-5 text-blue-400" />
+              <h2 className="text-white font-medium">Daily Notifications</h2>
             </div>
 
-            <div className="p-4 flex items-center justify-between">
+            {/* Toggle row */}
+            <button
+              onClick={() => handleToggleNotifications(!notifPrefs.enabled)}
+              className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-all"
+            >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
                   <Bell className="w-5 h-5 text-blue-400" />
                 </div>
                 <div className="text-left">
                   <div className="text-white font-medium">Daily Check-ins</div>
-                  <div className="text-white/60 text-sm">Remind me to log my progress</div>
+                  <div className="text-white/60 text-sm">
+                    {notifPrefs.enabled
+                      ? `Enabled · ${formatTime(notifPrefs.time)}`
+                      : 'Get a daily motivational reminder'}
+                  </div>
                 </div>
               </div>
-              <div className="w-12 h-7 bg-white/20 rounded-full">
-                <div className="w-5 h-5 bg-white rounded-full mt-1 ml-1" />
+              <div className={`w-12 h-7 rounded-full transition-all ${notifPrefs.enabled ? 'bg-blue-500' : 'bg-white/20'}`}>
+                <div className={`w-5 h-5 bg-white rounded-full mt-1 transition-all ${notifPrefs.enabled ? 'ml-6' : 'ml-1'}`} />
               </div>
-            </div>
+            </button>
+
+            {/* Time picker — shown when enabled */}
+            {notifPrefs.enabled && (
+              <div className="px-4 pb-4">
+                <label className="text-white/60 text-sm mb-2 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Notification time
+                </label>
+                <input
+                  type="time"
+                  value={notifPrefs.time}
+                  onChange={(e) => handleTimeChange(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-blue-400 text-base"
+                />
+                <p className="text-white/35 text-xs mt-2">
+                  Messages like: "Day X — You're still here. That takes courage."
+                </p>
+              </div>
+            )}
+
+            {/* Feedback message */}
+            {notifMessage && (
+              <div
+                className={`mx-4 mb-4 px-4 py-3 rounded-xl text-sm leading-relaxed ${
+                  notifMessage.type === 'success'
+                    ? 'bg-green-500/15 text-green-300 border border-green-500/20'
+                    : notifMessage.type === 'error'
+                    ? 'bg-red-500/15 text-red-300 border border-red-500/20'
+                    : 'bg-blue-500/15 text-blue-300 border border-blue-500/20'
+                }`}
+              >
+                {notifMessage.text}
+              </div>
+            )}
           </div>
 
           {/* Premium upgrade */}
@@ -477,7 +659,7 @@ export function ProfileSettingsTab() {
                 <li>✓ Priority Nova AI responses</li>
               </ul>
               <button className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all">
-                Upgrade Now - $39.99/year
+                Upgrade Now — $39.99/year
               </button>
             </div>
           )}
@@ -499,7 +681,7 @@ export function ProfileSettingsTab() {
           </div>
 
           <div className="text-center text-white/40 text-xs mt-8">
-            <p>NewU v1.0 - Neuro-Optimization Suite</p>
+            <p>NewU v1.0 — Neuro-Optimization Suite</p>
             <p className="mt-1">Built for performance engineers</p>
           </div>
         </div>
