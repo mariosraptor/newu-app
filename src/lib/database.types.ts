@@ -39,7 +39,7 @@ export interface Database {
         Row: {
           id: string
           user_id: string
-          addiction_type: 'smoking' | 'vaping' | 'snus' | 'alcohol'
+          addiction_type: 'smoking' | 'vaping' | 'alcohol' | 'sugar' | 'social-media' | 'porn' | 'gambling'
           quit_datetime: string
           daily_cost: number
           currency: string
@@ -50,7 +50,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
-          addiction_type: 'smoking' | 'vaping' | 'snus' | 'alcohol'
+          addiction_type: 'smoking' | 'vaping' | 'alcohol' | 'sugar' | 'social-media' | 'porn' | 'gambling'
           quit_datetime: string
           daily_cost?: number
           currency?: string
@@ -61,7 +61,7 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
-          addiction_type?: 'smoking' | 'vaping' | 'snus' | 'alcohol'
+          addiction_type?: 'smoking' | 'vaping' | 'alcohol' | 'sugar' | 'social-media' | 'porn' | 'gambling'
           quit_datetime?: string
           daily_cost?: number
           currency?: string

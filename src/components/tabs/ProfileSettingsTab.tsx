@@ -311,7 +311,7 @@ export function ProfileSettingsTab() {
   // ─── Clipboard / share ───────────────────────────────────────────────────────
 
   const handleCopyInviteLink = async () => {
-    const inviteText = `I'm using NewU to become someone new. Join me at ${window.location.origin}`;
+    const inviteText = `Someone I care about shared NewU with me and it changed everything. If you or someone you know is struggling, this app could help. Download NewU and become someone new: https://newu.app`;
     let copied = false;
     try {
       if (navigator.clipboard?.writeText) {
@@ -342,7 +342,7 @@ export function ProfileSettingsTab() {
   };
 
   const handleShareWhatsApp = () => {
-    const text = encodeURIComponent("I'm using NewU to become someone new. Join me!");
+    const text = encodeURIComponent("Someone I care about shared NewU with me and it changed everything. If you or someone you know is struggling, this app could help. Download NewU and become someone new: https://newu.app");
     window.open(`https://wa.me/?text=${text}`, '_blank');
   };
 
@@ -399,14 +399,14 @@ export function ProfileSettingsTab() {
 
         <div className="space-y-4">
 
-          {/* Refer a Friend */}
+          {/* Help a Friend */}
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
             <div className="p-4 border-b border-white/10 flex items-center gap-3">
               <Users className="w-5 h-5 text-blue-400" />
-              <h2 className="text-white font-medium">Refer a Friend</h2>
+              <h2 className="text-white font-medium">Help a Friend</h2>
             </div>
             <div className="p-4 space-y-3">
-              <p className="text-white/70 text-sm">Help others on their journey to transformation</p>
+              <p className="text-white/70 text-sm">Someone you love might be struggling in silence. Sharing NewU could be the push they need to start their journey. You might save a life.</p>
               <button
                 onClick={handleCopyInviteLink}
                 className="w-full flex items-center justify-center gap-2 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium transition-all"
