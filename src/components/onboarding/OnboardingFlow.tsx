@@ -87,14 +87,10 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
   };
 
   const handleComplete = () => {
-    if (!user) return;
-
     setLoading(true);
-
     try {
-      // Store onboarding data in localStorage for now
       const onboardingData = {
-        userId: user.id,
+        userId: user?.id || 'guest',
         addictions: data.addictions,
         myWhy: data.myWhy,
         triggers: data.triggers,
@@ -103,15 +99,9 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
         dailyCosts: data.dailyCosts,
         completedAt: new Date().toISOString(),
       };
-
       localStorage.setItem('onboardingData', JSON.stringify(onboardingData));
       localStorage.setItem('onboardingCompleted', 'true');
-
-      // Navigate to main app immediately
-      setTimeout(() => {
-        setLoading(false);
-        onComplete();
-      }, 500);
+      onComplete();
     } catch (error) {
       console.error('Onboarding error:', error);
       setLoading(false);

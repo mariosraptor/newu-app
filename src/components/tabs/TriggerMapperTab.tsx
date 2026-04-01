@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, CheckCircle, Plus, X } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Plus, X, BookOpen, Flame } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStealth } from '../../contexts/StealthContext';
@@ -13,6 +13,17 @@ interface Trigger {
   activation_count: number;
   resistance_count: number;
 }
+
+interface CravingEntry {
+  id: string;
+  timestamp: string;
+  triggerName: string;
+  intensity: number; // 1–5
+  notes: string;
+  resisted: boolean;
+}
+
+const CRAVING_JOURNAL_KEY = 'newu_craving_journal';
 
 type CategoryKey = 'emotional' | 'situational' | 'social';
 
@@ -73,6 +84,16 @@ export function TriggerMapperTab() {
   const [customTriggers, setCustomTriggers] = useState<Record<CategoryKey, string[]>>(
     () => loadCustomTriggers()
   );
+
+  // Craving journal
+  const [cravingJournal, setCravingJournal] = useState<CravingEntry[]>(() => {
+    try { const r = localStorage.getItem(CRAVING_JOURNAL_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
+  });
+  const [showJournalModal, setShowJournalModal] = useState(false);
+  const [journalTrigger, setJournalTrigger] = useState('');
+  const [journalIntensity, setJournalIntensity] = useState(3);
+  const [journalNotes, setJournalNotes] = useState('');
+  const [journalResisted, setJournalResisted] = useState<boolean | null>(null);
 
   // "Add Yours +" inline input
   const [addingCategory, setAddingCategory] = useState<CategoryKey | null>(null);
@@ -185,6 +206,33 @@ export function TriggerMapperTab() {
     const next = { ...selectedTriggers, [category]: updated };
     setSelectedTriggers(next);
     saveSelectedTriggers(next);
+  };
+
+  // ─── Craving journal ────────────────────────────────────────────────────────
+
+  const allActiveTriggerNames = [
+    ...(Object.keys(PRESET_TRIGGERS) as CategoryKey[]).flatMap(cat => selectedTriggers[cat]),
+    'Other',
+  ];
+
+  const saveJournalEntry = () => {
+    if (journalResisted === null) return;
+    const entry: CravingEntry = {
+      id: `c-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      triggerName: journalTrigger || 'Unspecified',
+      intensity: journalIntensity,
+      notes: journalNotes.trim(),
+      resisted: journalResisted,
+    };
+    const updated = [entry, ...cravingJournal].slice(0, 100);
+    setCravingJournal(updated);
+    try { localStorage.setItem(CRAVING_JOURNAL_KEY, JSON.stringify(updated)); } catch {}
+    setShowJournalModal(false);
+    setJournalTrigger('');
+    setJournalIntensity(3);
+    setJournalNotes('');
+    setJournalResisted(null);
   };
 
   // ─── Custom trigger actions ─────────────────────────────────────────────────
@@ -405,7 +453,19 @@ export function TriggerMapperTab() {
 
         {/* Your Active Triggers */}
         <div className="space-y-4">
-          <h2 className="text-white font-medium">Your Active {getTerminology('Triggers')}</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-white font-medium">Your Active {getTerminology('Triggers')}</h2>
+            <button
+              onClick={() => {
+                setJournalTrigger(allActiveTriggerNames[0] || 'Other');
+                setShowJournalModal(true);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/20 border border-orange-500/30 text-orange-300 text-xs font-medium rounded-full hover:bg-orange-500/30 transition-all"
+            >
+              <Flame className="w-3.5 h-3.5" />
+              Log a Craving
+            </button>
+          </div>
           {activeTriggers.length === 0 ? (
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 border border-white/20 text-center">
               <AlertTriangle className="w-12 h-12 text-white/40 mx-auto mb-4" />
@@ -448,7 +508,170 @@ export function TriggerMapperTab() {
             })
           )}
         </div>
-      </div>
+
+        {/* Craving journal entries */}
+        {cravingJournal.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-3">
+              <BookOpen className="w-4 h-4 text-white/50" />
+              <h2 className="text-white/70 text-sm font-medium">Craving Journal</h2>
+            </div>
+            <div className="space-y-3">
+              {cravingJournal.slice(0, 5).map((entry) => (
+                <div
+                  key={entry.id}
+                  className="bg-white/8 rounded-2xl p-4 border border-white/10"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <span className="text-white text-sm font-medium">{entry.triggerName}</span>
+                      <div className="flex items-center gap-1 mt-1">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className={`w-2 h-2 rounded-full ${i < entry.intensity ? 'bg-orange-400' : 'bg-white/15'}`}
+                          />
+                        ))}
+                        <span className="text-white/40 text-xs ml-1">intensity</span>
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0 ml-3">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                        entry.resisted
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {entry.resisted ? 'Resisted' : 'Gave in'}
+                      </span>
+                      <div className="text-white/30 text-xs mt-1.5">
+                        {new Date(entry.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                        {' · '}
+                        {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                  {entry.notes && (
+                    <p className="text-white/45 text-xs leading-relaxed mt-2 italic">
+                      "{entry.notes}"
+                    </p>
+                  )}
+                </div>
+              ))}
+              {cravingJournal.length > 5 && (
+                <p className="text-center text-white/30 text-xs">
+                  +{cravingJournal.length - 5} more entries
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>{/* end max-w-2xl */}
+
+      {/* Craving Journal Modal */}
+      {showJournalModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#001F3F] border border-white/20 rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-light text-white flex items-center gap-2">
+                <Flame className="w-5 h-5 text-orange-400" />
+                Log a Craving
+              </h3>
+              <button
+                onClick={() => setShowJournalModal(false)}
+                className="text-white/70 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              {/* Trigger */}
+              <div>
+                <label className="text-white/60 text-sm mb-2 block">What triggered it?</label>
+                <select
+                  value={journalTrigger}
+                  onChange={(e) => setJournalTrigger(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:border-orange-400/60"
+                >
+                  {allActiveTriggerNames.map((n) => (
+                    <option key={n} value={n}>{n}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Intensity */}
+              <div>
+                <label className="text-white/60 text-sm mb-3 block">
+                  How intense was it? <span className="text-orange-300 font-medium">{journalIntensity}/5</span>
+                </label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button
+                      key={n}
+                      onClick={() => setJournalIntensity(n)}
+                      className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                        journalIntensity >= n
+                          ? 'bg-orange-500/30 text-orange-300 border border-orange-500/50'
+                          : 'bg-white/8 text-white/30 border border-white/10'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Did you resist? */}
+              <div>
+                <label className="text-white/60 text-sm mb-3 block">Did you resist?</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setJournalResisted(true)}
+                    className={`p-3 rounded-xl border-2 transition-all ${
+                      journalResisted === true
+                        ? 'border-green-500 bg-green-500/20'
+                        : 'border-white/20 bg-white/10 hover:border-green-500/50'
+                    }`}
+                  >
+                    <CheckCircle className="w-6 h-6 text-green-400 mx-auto mb-1" />
+                    <div className="text-white text-sm font-medium">Yes — I held</div>
+                  </button>
+                  <button
+                    onClick={() => setJournalResisted(false)}
+                    className={`p-3 rounded-xl border-2 transition-all ${
+                      journalResisted === false
+                        ? 'border-red-500 bg-red-500/20'
+                        : 'border-white/20 bg-white/10 hover:border-red-500/50'
+                    }`}
+                  >
+                    <X className="w-6 h-6 text-red-400 mx-auto mb-1" />
+                    <div className="text-white text-sm font-medium">No — I gave in</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="text-white/60 text-sm mb-2 block">Notes (optional)</label>
+                <textarea
+                  value={journalNotes}
+                  onChange={(e) => setJournalNotes(e.target.value)}
+                  placeholder="What was happening? How did you handle it? Be honest with yourself…"
+                  className="w-full px-3 py-2.5 bg-white/10 border border-white/20 rounded-xl text-white text-sm placeholder-white/25 focus:outline-none focus:border-blue-400/60 resize-none h-24"
+                />
+              </div>
+
+              <button
+                onClick={saveJournalEntry}
+                disabled={journalResisted === null}
+                className="w-full py-3 bg-orange-500 hover:bg-orange-400 disabled:bg-white/10 disabled:text-white/40 text-white rounded-xl font-medium transition-all"
+              >
+                Save Entry
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Log Event Modal */}
       {showLogModal && selectedTrigger && (

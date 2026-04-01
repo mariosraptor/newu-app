@@ -680,9 +680,8 @@ export function ProfileSettingsTab() {
             </button>
           </div>
 
-          <div className="text-center text-white/40 text-xs mt-8">
-            <p>NewU v1.0 — Neuro-Optimization Suite</p>
-            <p className="mt-1">Built for performance engineers</p>
+          <div className="text-center text-white/30 text-xs mt-8">
+            <p>NewU — Powered by your self love.</p>
           </div>
         </div>
       </div>
