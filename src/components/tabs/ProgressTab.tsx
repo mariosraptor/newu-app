@@ -102,11 +102,28 @@ export function ProgressTab() {
     if (fileInputRef.current) fileInputRef.current.value = '';
 
     try {
+      // Fetch quit_datetime fresh from Supabase at upload time so the day
+      // number is always accurate — never stale from React state.
+      let currentDaysClean = daysClean;
+      if (user) {
+        const { data } = await supabase
+          .from('journeys')
+          .select('quit_datetime')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle();
+        if (data?.quit_datetime) {
+          const diffMs = Date.now() - new Date(data.quit_datetime).getTime();
+          currentDaysClean = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+          setDaysClean(currentDaysClean);
+        }
+      }
+
       const base64 = await compressImage(file);
 
       const newSelfie: Selfie = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        day: daysClean,
+        day: currentDaysClean,
         date: new Date().toLocaleDateString(),
         imageData: base64,
       };
