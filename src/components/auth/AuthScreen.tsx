@@ -131,16 +131,22 @@ function AuthForm({
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[ForgotPassword] form submitted, email:', resetEmail);
     setResetError('');
     setResetLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
-        redirectTo: window.location.origin,
+      console.log('[ForgotPassword] calling supabase.auth.resetPasswordForEmail...');
+      const { data, error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: 'https://newu-app.netlify.app',
       });
+      console.log('[ForgotPassword] response → data:', data, 'error:', error);
       if (error) throw error;
+      console.log('[ForgotPassword] success — showing confirmation');
       setResetSent(true);
     } catch (err: unknown) {
-      setResetError(friendlyAuthError(err instanceof Error ? err.message : 'An error occurred'));
+      const msg = err instanceof Error ? err.message : 'An error occurred';
+      console.error('[ForgotPassword] caught error:', msg);
+      setResetError(friendlyAuthError(msg));
     } finally {
       setResetLoading(false);
     }
@@ -265,7 +271,13 @@ function AuthForm({
                 {!isSignUp && (
                   <button
                     type="button"
-                    onClick={() => { setForgotMode(true); setResetEmail(email); setResetError(''); setResetSent(false); }}
+                    onClick={() => {
+                      console.log('[ForgotPassword] link clicked, switching to reset mode');
+                      setForgotMode(true);
+                      setResetEmail(email);
+                      setResetError('');
+                      setResetSent(false);
+                    }}
                     className="mt-2 text-xs text-blue-400/70 hover:text-blue-400 transition-colors"
                   >
                     Forgot your password?
