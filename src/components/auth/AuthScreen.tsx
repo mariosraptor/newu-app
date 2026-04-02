@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 import { Sparkles, ChevronDown } from 'lucide-react';
 
 // ─── Daily rotating motto ──────────────────────────────────────────────────────
@@ -63,7 +64,29 @@ function FadeIn({
   );
 }
 
-// ─── Auth form (sign up / sign in) ────────────────────────────────────────────
+// ─── Auth form (sign up / sign in / forgot password) ─────────────────────────
+
+function friendlyAuthError(message: string): string {
+  const msg = message.toLowerCase();
+  if (
+    msg.includes('rate') ||
+    msg.includes('too many') ||
+    msg.includes('over_email_send_rate_limit') ||
+    msg.includes('email rate')
+  ) {
+    return 'Too many attempts. Please wait a few minutes and try again.';
+  }
+  if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+    return 'Incorrect email or password.';
+  }
+  if (msg.includes('user already registered') || msg.includes('already been registered')) {
+    return 'An account with this email already exists. Try signing in instead.';
+  }
+  if (msg.includes('password') && msg.includes('6')) {
+    return 'Password must be at least 6 characters.';
+  }
+  return message;
+}
 
 function AuthForm({
   defaultMode,
@@ -78,6 +101,14 @@ function AuthForm({
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Forgot password state
+  const [forgotMode, setForgotMode] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState('');
+
   const { signUp, signIn } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,9 +123,26 @@ function AuthForm({
         await signIn(email, password);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      setError(friendlyAuthError(err instanceof Error ? err.message : 'An error occurred'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
+        redirectTo: window.location.origin,
+      });
+      if (error) throw error;
+      setResetSent(true);
+    } catch (err: unknown) {
+      setResetError(friendlyAuthError(err instanceof Error ? err.message : 'An error occurred'));
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -102,10 +150,10 @@ function AuthForm({
     <div className="min-h-screen bg-gradient-to-b from-[#000d1a] via-[#001F3F] to-[#002a52] flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <button
-          onClick={onBack}
+          onClick={forgotMode ? () => setForgotMode(false) : onBack}
           className="flex items-center gap-2 text-white/40 hover:text-white/70 text-sm mb-8 transition-colors"
         >
-          ← Back
+          ← {forgotMode ? 'Back to Sign In' : 'Back'}
         </button>
 
         <div className="text-center mb-8">
@@ -116,79 +164,131 @@ function AuthForm({
           <p className="text-white/50 text-sm">Become Someone New</p>
         </div>
 
-        <div className="bg-white/8 backdrop-blur-lg rounded-3xl border border-white/15 p-6">
-          <div className="flex mb-6 bg-white/10 rounded-xl p-1">
-            <button
-              onClick={() => setIsSignUp(true)}
-              className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all text-sm ${
-                isSignUp ? 'bg-blue-500 text-white shadow-sm' : 'text-white/50 hover:text-white/80'
-              }`}
-            >
-              Sign Up
-            </button>
-            <button
-              onClick={() => setIsSignUp(false)}
-              className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all text-sm ${
-                !isSignUp ? 'bg-blue-500 text-white shadow-sm' : 'text-white/50 hover:text-white/80'
-              }`}
-            >
-              Sign In
-            </button>
-          </div>
+        {/* ── Forgot password panel ── */}
+        {forgotMode ? (
+          <div className="bg-white/8 backdrop-blur-lg rounded-3xl border border-white/15 p-6">
+            <h2 className="text-white font-medium text-lg mb-1">Reset your password</h2>
+            <p className="text-white/50 text-sm mb-5">
+              Enter your email and we'll send you a reset link.
+            </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {isSignUp && (
+            {resetSent ? (
+              <div className="p-4 bg-green-500/15 border border-green-500/30 rounded-xl text-sm text-green-300 text-center leading-relaxed">
+                Check your email for a password reset link.
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div>
+                  <label className="block text-sm text-white/60 mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/25 focus:outline-none focus:border-blue-400/70 transition-colors"
+                    placeholder="your@email.com"
+                    required
+                  />
+                </div>
+                {resetError && (
+                  <div className="p-3 bg-red-500/15 border border-red-500/30 rounded-xl text-sm text-red-300">
+                    {resetError}
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="w-full py-4 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/25"
+                >
+                  {resetLoading ? 'Sending…' : 'Send Reset Link'}
+                </button>
+              </form>
+            )}
+          </div>
+        ) : (
+          /* ── Sign up / sign in panel ── */
+          <div className="bg-white/8 backdrop-blur-lg rounded-3xl border border-white/15 p-6">
+            <div className="flex mb-6 bg-white/10 rounded-xl p-1">
+              <button
+                onClick={() => setIsSignUp(true)}
+                className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all text-sm ${
+                  isSignUp ? 'bg-blue-500 text-white shadow-sm' : 'text-white/50 hover:text-white/80'
+                }`}
+              >
+                Sign Up
+              </button>
+              <button
+                onClick={() => setIsSignUp(false)}
+                className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all text-sm ${
+                  !isSignUp ? 'bg-blue-500 text-white shadow-sm' : 'text-white/50 hover:text-white/80'
+                }`}
+              >
+                Sign In
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {isSignUp && (
+                <div>
+                  <label className="block text-sm text-white/60 mb-1.5">Your Name</label>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/25 focus:outline-none focus:border-blue-400/70 transition-colors"
+                    placeholder="Enter your name"
+                    required={isSignUp}
+                  />
+                </div>
+              )}
               <div>
-                <label className="block text-sm text-white/60 mb-1.5">Your Name</label>
+                <label className="block text-sm text-white/60 mb-1.5">Email</label>
                 <input
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/25 focus:outline-none focus:border-blue-400/70 transition-colors"
-                  placeholder="Enter your name"
-                  required={isSignUp}
+                  placeholder="your@email.com"
+                  required
                 />
               </div>
-            )}
-            <div>
-              <label className="block text-sm text-white/60 mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/25 focus:outline-none focus:border-blue-400/70 transition-colors"
-                placeholder="your@email.com"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-white/60 mb-1.5">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/25 focus:outline-none focus:border-blue-400/70 transition-colors"
-                placeholder="••••••••"
-                required
-                minLength={6}
-              />
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-500/15 border border-red-500/30 rounded-xl text-sm text-red-300">
-                {error}
+              <div>
+                <label className="block text-sm text-white/60 mb-1.5">Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/25 focus:outline-none focus:border-blue-400/70 transition-colors"
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
+                />
+                {!isSignUp && (
+                  <button
+                    type="button"
+                    onClick={() => { setForgotMode(true); setResetEmail(email); setResetError(''); setResetSent(false); }}
+                    className="mt-2 text-xs text-blue-400/70 hover:text-blue-400 transition-colors"
+                  >
+                    Forgot your password?
+                  </button>
+                )}
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/25 mt-2"
-            >
-              {loading ? 'Please wait…' : isSignUp ? 'Begin Your Journey' : 'Welcome Back'}
-            </button>
-          </form>
-        </div>
+              {error && (
+                <div className="p-3 bg-red-500/15 border border-red-500/30 rounded-xl text-sm text-red-300">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/25 mt-2"
+              >
+                {loading ? 'Please wait…' : isSignUp ? 'Begin Your Journey' : 'Welcome Back'}
+              </button>
+            </form>
+          </div>
+        )}
       </div>
     </div>
   );
