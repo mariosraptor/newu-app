@@ -133,7 +133,7 @@ export function BotanicalTab() {
                 </ul>
               </div>
               <button onClick={openUpgradeModal} className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all">
-                Upgrade to NewU Pro - $39.99/year
+                Upgrade to NewU Pro — from $6.99/month
               </button>
             </div>
           </div>
