@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useUpgrade } from '../../contexts/UpgradeContext';
 import { Leaf, Lock, Crown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -73,6 +74,7 @@ const botanicalDatabase: BotanicalProtocol[] = [
 export function BotanicalTab() {
   const { user } = useAuth();
   const [isPremium, setIsPremium] = useState(false);
+  const { openUpgradeModal } = useUpgrade();
   const [loading, setLoading] = useState(true);
   const [selectedProtocol, setSelectedProtocol] = useState<BotanicalProtocol | null>(null);
 
@@ -130,7 +132,7 @@ export function BotanicalTab() {
                   <li>• Smartwatch Integration</li>
                 </ul>
               </div>
-              <button className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all">
+              <button onClick={openUpgradeModal} className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all">
                 Upgrade to NewU Pro - $39.99/year
               </button>
             </div>

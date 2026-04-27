@@ -58,7 +58,10 @@ function App() {
   return (
     <AuthProvider>
       <StealthProvider>
-        <AppContent />
+        <UpgradeProvider>
+          <AppContent />
+          <UpgradeModal />
+        </UpgradeProvider>
       </StealthProvider>
     </AuthProvider>
   );

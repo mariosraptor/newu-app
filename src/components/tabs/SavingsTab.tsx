@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, Plus, Check, Trash2 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface BucketItem {
@@ -31,7 +30,7 @@ export function SavingsTab() {
   const loadData = async () => {
     if (!user) return;
 
-    // Load goals from localStorage first (fast, no network needed)
+    // Load goals from localStorage
     try {
       const storedGoals = localStorage.getItem('newu_goals');
       if (storedGoals) {
@@ -41,26 +40,31 @@ export function SavingsTab() {
       setBucketItems([]);
     }
 
-    // Then fetch journey data from Supabase
+    // Read journey data from localStorage onboardingData
     try {
-      const { data } = await supabase
-        .from('journeys')
-        .select('quit_datetime, daily_cost')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (data) {
-        const days = Math.max(
-          0,
-          Math.floor((Date.now() - new Date(data.quit_datetime).getTime()) / (1000 * 60 * 60 * 24))
+      const stored = localStorage.getItem('onboardingData');
+      if (stored) {
+        const onboarding = JSON.parse(stored);
+        const quitDateStr = onboarding.quitDate;
+        const dailyCosts = onboarding.dailyCosts || {};
+        const totalDailyCost = Object.values(dailyCosts).reduce(
+          (sum: number, v) => sum + Number(v),
+          0
         );
-        setDaysClean(days);
-        setDailyCost(data.daily_cost);
-        setTotalSaved(days * data.daily_cost);
+        if (quitDateStr && totalDailyCost > 0) {
+          const days = Math.max(
+            0,
+            Math.floor(
+              (Date.now() - new Date(quitDateStr).getTime()) / (1000 * 60 * 60 * 24)
+            )
+          );
+          setDaysClean(days);
+          setDailyCost(totalDailyCost);
+          setTotalSaved(days * totalDailyCost);
+        }
       }
     } catch (e) {
-      console.error('Failed to load journey data:', e);
+      console.error('Failed to load savings data:', e);
     } finally {
       setLoading(false);
     }
