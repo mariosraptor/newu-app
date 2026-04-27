@@ -234,7 +234,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
             <textarea
               value={data.myWhy}
               onChange={(e) => setData({ ...data, myWhy: e.target.value })}
-              className="w-full h-48 px-4 py-3 bg-white/8 border border-white/15 rounded-xl focus:outline-none focus:border-blue-400/60 transition-colors resize-none text-white placeholder-white/25 text-sm leading-relaxed"
+              className="w-full h-48 px-4 py-3 bg-white/20 border border-white/30 rounded-xl focus:outline-none focus:border-blue-400/60 transition-colors resize-none text-white placeholder-white/40 text-sm leading-relaxed"
               placeholder="Write freely about the version of you that's waiting on the other side of this journey…"
             />
           </div>
@@ -304,7 +304,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
                   value={customTrigger}
                   onChange={(e) => setCustomTrigger(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addCustomTrigger()}
-                  className="flex-1 px-4 py-3 bg-white/8 border border-white/15 rounded-xl text-white placeholder-white/25 focus:outline-none focus:border-blue-400/60 text-sm"
+                  className="flex-1 px-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-blue-400/60 text-sm"
                   placeholder="Type a custom trigger…"
                 />
                 <button
