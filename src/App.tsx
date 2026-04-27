@@ -5,6 +5,8 @@ import { AuthScreen } from './components/auth/AuthScreen';
 import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { SplashScreen } from './components/SplashScreen';
 import { MainApp } from './components/MainApp';
+import { UpgradeProvider } from './contexts/UpgradeContext';
+import { UpgradeModal } from './components/UpgradeModal';
 
 function AppContent() {
   const { user, loading } = useAuth();
