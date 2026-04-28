@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 // ─── Addiction definitions ─────────────────────────────────────────────────────
 
@@ -110,6 +112,7 @@ interface OnboardingData {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [data, setData] = useState<OnboardingData>({
     addictions: [],
@@ -147,7 +150,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     setLoading(true);
     try {
       const onboardingData = {
@@ -161,6 +164,20 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
       };
       localStorage.setItem('onboardingData', JSON.stringify(onboardingData));
       localStorage.setItem('onboardingCompleted', 'true');
+
+      if (user) {
+        const journeyRows = data.addictions.map((addictionId) => ({
+          user_id: user.id,
+          addiction_type: addictionId as 'smoking' | 'vaping' | 'alcohol' | 'sugar' | 'social-media' | 'porn' | 'gambling',
+          quit_datetime: data.quitDate.toISOString(),
+          daily_cost: data.dailyCosts[addictionId] || 0,
+          currency: 'USD',
+          my_why: data.myWhy,
+          is_active: true,
+        }));
+        await supabase.from('journeys').insert(journeyRows);
+      }
+
       onComplete();
     } catch (error) {
       console.error('Onboarding error:', error);
@@ -194,7 +211,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
                   className={`p-5 rounded-2xl border-2 text-left transition-all ${
                     selected
                       ? 'bg-blue-500/20 border-blue-500 text-white'
-                      : 'bg-white/5 border-white/15 text-white/80 hover:border-white/35 hover:bg-white/8'
+                      : 'bg-white/5 border-white/15 text-white/80 hover:border-white/35 hover:bg-white/15'
                   }`}
                 >
                   <div className="text-3xl mb-2">{emoji}</div>
@@ -230,11 +247,11 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
             <p className="text-white/55">What does your life look like on the other side?</p>
           </div>
 
-          <div className="bg-white/8 backdrop-blur-sm border border-white/15 rounded-2xl p-6 mb-6">
+          <div className="bg-white/15 backdrop-blur-sm border border-white/15 rounded-2xl p-6 mb-6">
             <textarea
               value={data.myWhy}
               onChange={(e) => setData({ ...data, myWhy: e.target.value })}
-              className="w-full h-48 px-4 py-3 bg-white/20 border border-white/30 rounded-xl focus:outline-none focus:border-blue-400/60 transition-colors resize-none text-white placeholder-white/40 text-sm leading-relaxed"
+              className="w-full h-48 px-4 py-3 bg-[#001a35] border border-white/30 rounded-xl focus:outline-none focus:border-blue-400/60 transition-colors resize-none text-white placeholder-white/40 text-sm leading-relaxed"
               placeholder="Write freely about the version of you that's waiting on the other side of this journey…"
             />
           </div>
@@ -242,7 +259,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
           <div className="flex gap-3">
             <button
               onClick={() => setStep(1)}
-              className="flex-1 py-4 bg-white/8 border border-white/15 text-white/70 font-medium rounded-2xl hover:bg-white/12 transition-all"
+              className="flex-1 py-4 bg-white/15 border border-white/15 text-white/70 font-medium rounded-2xl hover:bg-white/12 transition-all"
             >
               Back
             </button>
@@ -304,7 +321,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
                   value={customTrigger}
                   onChange={(e) => setCustomTrigger(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addCustomTrigger()}
-                  className="flex-1 px-4 py-3 bg-white/20 border border-white/30 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-blue-400/60 text-sm"
+                  className="flex-1 px-4 py-3 bg-[#001a35] border border-white/30 rounded-xl text-white placeholder-white/40 focus:outline-none focus:border-blue-400/60 text-sm"
                   placeholder="Type a custom trigger…"
                 />
                 <button
@@ -329,7 +346,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
           <div className="flex gap-3">
             <button
               onClick={() => setStep(2)}
-              className="flex-1 py-4 bg-white/8 border border-white/15 text-white/70 font-medium rounded-2xl hover:bg-white/12 transition-all"
+              className="flex-1 py-4 bg-white/15 border border-white/15 text-white/70 font-medium rounded-2xl hover:bg-white/12 transition-all"
             >
               Back
             </button>
@@ -356,7 +373,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
             <p className="text-white/55">When does your new life begin?</p>
           </div>
 
-          <div className="bg-white/8 backdrop-blur-sm border border-white/15 rounded-2xl p-6 mb-6 space-y-6">
+          <div className="bg-white/15 backdrop-blur-sm border border-white/15 rounded-2xl p-6 mb-6 space-y-6">
 
             {/* Date/time picker */}
             <div>
@@ -365,7 +382,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
                 type="datetime-local"
                 value={data.quitDate.toISOString().slice(0, 16)}
                 onChange={(e) => setData({ ...data, quitDate: new Date(e.target.value) })}
-                className="w-full px-4 py-3 bg-white/8 border border-white/15 rounded-xl text-white focus:outline-none focus:border-blue-400/60 transition-colors"
+                className="w-full px-4 py-3 bg-[#001a35] border border-white/30 rounded-xl text-white focus:outline-none focus:border-blue-400/60 transition-colors"
               />
             </div>
 
@@ -394,7 +411,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
                             dailyCosts: { ...data.dailyCosts, [addiction.id]: parseFloat(e.target.value) || 0 },
                           })
                         }
-                        className="flex-1 px-4 py-3 bg-white/8 border border-white/15 rounded-xl text-white focus:outline-none focus:border-blue-400/60"
+                        className="flex-1 px-4 py-3 bg-[#001a35] border border-white/30 rounded-xl text-white focus:outline-none focus:border-blue-400/60"
                         placeholder={addiction.costPlaceholder}
                       />
                     </div>
@@ -429,7 +446,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
                             dailyCosts: { ...data.dailyCosts, [addiction.id]: parseFloat(e.target.value) || 0 },
                           })
                         }
-                        className="flex-1 px-4 py-3 bg-white/8 border border-white/15 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-blue-400/60"
+                        className="flex-1 px-4 py-3 bg-[#001a35] border border-white/30 rounded-xl text-white placeholder-white/20 focus:outline-none focus:border-blue-400/60"
                         placeholder={addiction.costPlaceholder}
                       />
                     </div>
@@ -456,7 +473,7 @@ export function OnboardingFlow({ onComplete }: { onComplete: () => void }) {
                 <div className="flex gap-3 mb-8">
                   <button
                     onClick={() => setStep(3)}
-                    className="flex-1 py-4 bg-white/8 border border-white/15 text-white/70 font-medium rounded-2xl hover:bg-white/12 transition-all"
+                    className="flex-1 py-4 bg-white/15 border border-white/15 text-white/70 font-medium rounded-2xl hover:bg-white/12 transition-all"
                   >
                     Back
                   </button>

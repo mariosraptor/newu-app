@@ -93,8 +93,7 @@ export function ProfileSettingsTab() {
   };
 
   const handleCopyInviteLink = async () => {
-    const appUrl = window.location.origin;
-    const inviteText = `I wanted to share something that's genuinely helping me. NewU is a recovery app that uses science, AI and real support tools to help people break addictions. If you or someone you know is struggling — this could change everything. Download it here at ${appUrl}`;
+    const inviteText = "I wanted to share something that's genuinely helping me. NewU is a recovery app that uses science, AI and real support tools to help people break addictions. If you or someone you know is struggling — this could change everything. Download it here: https://newu-app.netlify.app";
 
     try {
       await navigator.clipboard.writeText(inviteText);
@@ -106,7 +105,7 @@ export function ProfileSettingsTab() {
   };
 
   const handleShareWhatsApp = () => {
-    const whatsappText = encodeURIComponent("I wanted to share something that's genuinely helping me. NewU is a recovery app that uses science, AI and real support tools to help people break addictions. If you or someone you know is struggling — this could change everything. Download it here!");
+    const whatsappText = encodeURIComponent("I wanted to share something that's genuinely helping me. NewU is a recovery app that uses science, AI and real support tools to help people break addictions. If you or someone you know is struggling — this could change everything. Download it here: https://newu-app.netlify.app");
     window.open(`https://wa.me/?text=${whatsappText}`, '_blank');
   };
 

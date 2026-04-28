@@ -9,6 +9,7 @@ import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { SplashScreen } from './components/SplashScreen';
 import { MainApp } from './components/MainApp';
 import { UpgradeModal } from './components/UpgradeModal';
+import { supabase } from './lib/supabase';
 
 function WelcomeProBanner({ onDismiss }: { onDismiss: () => void }) {
   return (
@@ -77,8 +78,27 @@ function AppContent() {
   const checkOnboardingStatus = async () => {
     if (!user) return;
 
-    const onboardingCompleted = localStorage.getItem('onboardingCompleted');
-    setHasCompletedOnboarding(onboardingCompleted === 'true');
+    // Fast path: localStorage already set on this device
+    if (localStorage.getItem('onboardingCompleted') === 'true') {
+      setHasCompletedOnboarding(true);
+      return;
+    }
+
+    // Returning user on a new device — check Supabase for an active journey
+    const { data } = await supabase
+      .from('journeys')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (data) {
+      localStorage.setItem('onboardingCompleted', 'true');
+      setHasCompletedOnboarding(true);
+    } else {
+      setHasCompletedOnboarding(false);
+    }
   };
 
   if (showSplash) {
