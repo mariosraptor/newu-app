@@ -8,3 +8,5 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>
 );
+// Τρί 28 Απρ 2026 17:49:01 EEST
+import './buildtime';

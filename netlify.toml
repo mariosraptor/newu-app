@@ -3,6 +3,11 @@
   publish = "dist"
   functions = "netlify/functions"
 
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
