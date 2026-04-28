@@ -70,6 +70,8 @@ const MILESTONES: Record<AddictionGroup, Milestone[]> = {
   ],
 };
 
+
+
 const DOPAMINE_BLOOD: BloodMilestone[] = [
   { minutes: 4320,   timeLabel: '3 days',   description: 'Cortisol levels measurably dropping. Heart rate variability improving',                  source: 'APA, 2019' },
   { minutes: 10080,  timeLabel: '1 week',   description: 'Inflammatory markers (CRP) reducing. Sleep hormone melatonin normalizing',               source: '' },
@@ -401,7 +403,7 @@ const ORGAN_DETAILS: Record<string, { title: string; addictions: string[]; descr
   Brain: {
     title: 'Brain',
     addictions: ['Smoking', 'Vaping', 'Alcohol', 'Gambling', 'Porn', 'Social Media'],
-    description: 'Your brain's reward circuitry is rewiring itself. Dopamine receptors that were desensitized by addiction are resetting to healthy baseline levels.',
+    description: "Your brain's reward circuitry is rewiring itself. Dopamine receptors that were desensitized by addiction are resetting to healthy baseline levels.",
     recovery: 'After 2 weeks prefrontal cortex function improves — better decisions, less impulsivity. After 3 months grey matter density measurably increases. After 1 year the brain is largely rewired.'
   },
   Liver: {
@@ -426,6 +428,7 @@ export function BodyTransformationTab() {
   const [addictions, setAddictions] = useState<string[]>([]);
   const [minutesClean, setMinutesClean] = useState(0);
   const [daysClean, setDaysClean] = useState(0);
+  const [selectedOrgan, setSelectedOrgan] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) loadData();
@@ -528,7 +531,6 @@ export function BodyTransformationTab() {
   const fullGlow = daysClean >= 90;
   const skinGlows = daysClean >= 30;
 
-  const [selectedOrgan, setSelectedOrgan] = useState<string | null>(null);
   const organLegend = [
     { label: 'Heart',  active: daysClean >= 1,                       color: 'green', show: true },
     { label: 'Lungs',  active: daysClean >= 3 && isSmokingGroup,      color: 'green', show: isSmokingGroup },
