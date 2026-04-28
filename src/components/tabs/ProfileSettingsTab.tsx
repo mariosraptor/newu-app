@@ -94,7 +94,7 @@ export function ProfileSettingsTab() {
 
   const handleCopyInviteLink = async () => {
     const appUrl = window.location.origin;
-    const inviteText = `I'm using NewU to become someone new. Join me at ${appUrl}`;
+    const inviteText = `I wanted to share something that's genuinely helping me. NewU is a recovery app that uses science, AI and real support tools to help people break addictions. If you or someone you know is struggling — this could change everything. Download it here at ${appUrl}`;
 
     try {
       await navigator.clipboard.writeText(inviteText);
@@ -106,7 +106,7 @@ export function ProfileSettingsTab() {
   };
 
   const handleShareWhatsApp = () => {
-    const whatsappText = encodeURIComponent("I'm using NewU to become someone new. Join me!");
+    const whatsappText = encodeURIComponent("I wanted to share something that's genuinely helping me. NewU is a recovery app that uses science, AI and real support tools to help people break addictions. If you or someone you know is struggling — this could change everything. Download it here!");
     window.open(`https://wa.me/?text=${whatsappText}`, '_blank');
   };
 
@@ -356,7 +356,7 @@ export function ProfileSettingsTab() {
 
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 overflow-hidden">
             <div className="p-4 border-b border-white/10">
-              <h2 className="text-white font-medium">Refer a Friend</h2>
+              <h2 className="text-white font-medium">Help a Friend</h2>
             </div>
             <div className="p-4 space-y-3">
               <p className="text-white/70 text-sm mb-4">

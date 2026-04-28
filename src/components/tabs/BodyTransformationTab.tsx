@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUpgrade } from '../../contexts/UpgradeContext';
 
-type AddictionGroup = 'smoking' | 'alcohol' | 'sugar' | 'dopamine';
+type AddictionGroup = 'smoking' | 'alcohol' | 'sugar' | 'gambling' | 'porn' | 'social_media';
 
 interface Milestone {
   minutes: number;
@@ -37,22 +37,40 @@ const MILESTONES: Record<AddictionGroup, Milestone[]> = {
     { minutes: 43200,  timeLabel: '1 month',   description: 'Reduced inflammation, better digestion' },
     { minutes: 129600, timeLabel: '3 months',  description: 'Sustained energy, cravings gone' },
   ],
-  dopamine: [
-    { minutes: 4320,   timeLabel: '3 days',    description: 'Dopamine receptors begin resetting' },
-    { minutes: 10080,  timeLabel: '1 week',    description: 'Sleep quality improves dramatically' },
-    { minutes: 20160,  timeLabel: '2 weeks',   description: 'Focus and attention span increases' },
-    { minutes: 43200,  timeLabel: '1 month',   description: 'Anxiety significantly reduced' },
-    { minutes: 129600, timeLabel: '3 months',  description: 'Brain rewired, new habits formed' },
-    { minutes: 525600, timeLabel: '1 year',    description: 'Reward system fully recalibrated' },
+  gambling: [
+    { minutes: 4320,   timeLabel: '3 days',    description: 'Cortisol levels begin to drop. Fight-or-flight response calming' },
+    { minutes: 10080,  timeLabel: '1 week',    description: 'Sleep quality improves as financial anxiety reduces' },
+    { minutes: 20160,  timeLabel: '2 weeks',   description: 'Prefrontal cortex activity increasing — better impulse control' },
+    { minutes: 43200,  timeLabel: '1 month',   description: 'Dopamine receptors resetting. Normal pleasures feel rewarding again' },
+    { minutes: 129600, timeLabel: '3 months',  description: 'Anxiety and depression scores measurably improve' },
+    { minutes: 259200, timeLabel: '6 months',  description: 'Brain reward circuitry significantly rewired' },
+  ],
+  porn: [
+    { minutes: 4320,   timeLabel: '3 days',    description: 'Dopamine baseline begins rising' },
+    { minutes: 10080,  timeLabel: '1 week',    description: 'Brain fog starting to lift' },
+    { minutes: 20160,  timeLabel: '2 weeks',   description: 'Social anxiety reducing' },
+    { minutes: 43200,  timeLabel: '1 month',   description: 'Emotional intimacy capacity increasing' },
+    { minutes: 129600, timeLabel: '3 months',  description: 'Prefrontal cortex rewired. Motivation and focus return' },
+    { minutes: 259200, timeLabel: '6 months',  description: 'Healthy attraction responses restored' },
+  ],
+  social_media: [
+    { minutes: 1440,   timeLabel: '1 day',     description: 'Cortisol from comparison anxiety dropping' },
+    { minutes: 4320,   timeLabel: '3 days',    description: 'Attention span starting to recover' },
+    { minutes: 10080,  timeLabel: '1 week',    description: 'Sleep quality improving — less blue light and anxiety' },
+    { minutes: 20160,  timeLabel: '2 weeks',   description: 'Real-world social connections strengthening' },
+    { minutes: 43200,  timeLabel: '1 month',   description: 'Dopamine sensitivity normalizing' },
+    { minutes: 129600, timeLabel: '3 months',  description: 'Focus, creativity and deep work capacity restored' },
   ],
 };
 
 function getGroup(addictions: string[]): AddictionGroup {
-  const a = addictions.map(x => x.toLowerCase());
+  const a = addictions.map(x => x.toLowerCase().replace('-', '_').replace(' ', '_'));
   if (a.some(x => ['smoking', 'vaping', 'snus', 'nicotine'].includes(x))) return 'smoking';
   if (a.includes('alcohol')) return 'alcohol';
   if (a.includes('sugar')) return 'sugar';
-  return 'dopamine';
+  if (a.some(x => ['gambling'].includes(x))) return 'gambling';
+  if (a.some(x => ['porn'].includes(x))) return 'porn';
+  return 'social_media';
 }
 
 function getDisplayName(addictions: string[]): string {
