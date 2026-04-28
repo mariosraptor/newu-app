@@ -384,6 +384,40 @@ function BloodRecoveryPanel({ group, minutesClean }: { group: AddictionGroup; mi
 
 // ── Main component ────────────────────────────────────────────────────────────
 
+
+const ORGAN_DETAILS: Record<string, { title: string; addictions: string[]; description: string; recovery: string }> = {
+  Heart: {
+    title: 'Heart',
+    addictions: ['Smoking', 'Vaping', 'Alcohol', 'Gambling'],
+    description: 'Your heart is one of the first organs to benefit from quitting. Within 20 minutes blood pressure normalizes. Within 24 hours heart attack risk begins dropping.',
+    recovery: 'After 1 year clean your risk of coronary heart disease is half that of someone still using. After 5 years your stroke risk matches that of a non-user.'
+  },
+  Lungs: {
+    title: 'Lungs',
+    addictions: ['Smoking', 'Vaping'],
+    description: 'Your lungs begin clearing tar and mucus within days of quitting. Cilia — the tiny hairs that sweep debris out — start regrowing within weeks.',
+    recovery: 'After 1 month lung function improves by up to 30%. After 1 year coughing and shortness of breath reduce significantly. After 10 years lung cancer risk drops by 50%.'
+  },
+  Brain: {
+    title: 'Brain',
+    addictions: ['Smoking', 'Vaping', 'Alcohol', 'Gambling', 'Porn', 'Social Media'],
+    description: 'Your brain's reward circuitry is rewiring itself. Dopamine receptors that were desensitized by addiction are resetting to healthy baseline levels.',
+    recovery: 'After 2 weeks prefrontal cortex function improves — better decisions, less impulsivity. After 3 months grey matter density measurably increases. After 1 year the brain is largely rewired.'
+  },
+  Liver: {
+    title: 'Liver',
+    addictions: ['Alcohol', 'Sugar'],
+    description: 'The liver is remarkable — it can regenerate itself. Within 24 hours of stopping alcohol, liver enzyme levels begin dropping. Fat deposits start clearing.',
+    recovery: 'After 1 month liver fat reduces significantly. After 3 months liver enzymes approach normal range. After 1 year the liver can be nearly fully regenerated in many cases.'
+  },
+  Skin: {
+    title: 'Skin',
+    addictions: ['Smoking', 'Vaping', 'Alcohol', 'Sugar', 'Gambling', 'Porn', 'Social Media'],
+    description: 'Skin reflects your internal health. Smoking reduces blood flow and oxygen to skin. Alcohol dehydrates. Sugar causes inflammation. All accelerate ageing.',
+    recovery: 'After 1 week skin hydration improves noticeably. After 1 month skin tone evens out. After 3 months collagen production increases and fine lines reduce.'
+  }
+};
+
 export function BodyTransformationTab() {
   const { user } = useAuth();
   const { openUpgradeModal } = useUpgrade();
@@ -494,6 +528,7 @@ export function BodyTransformationTab() {
   const fullGlow = daysClean >= 90;
   const skinGlows = daysClean >= 30;
 
+  const [selectedOrgan, setSelectedOrgan] = useState<string | null>(null);
   const organLegend = [
     { label: 'Heart',  active: daysClean >= 1,                       color: 'green', show: true },
     { label: 'Lungs',  active: daysClean >= 3 && isSmokingGroup,      color: 'green', show: isSmokingGroup },
@@ -544,15 +579,16 @@ export function BodyTransformationTab() {
             const dotColor = fullGlow ? 'bg-yellow-400' : color === 'blue' ? 'bg-blue-400' : 'bg-green-400';
 
             return (
-              <div
+              <button
                 key={label}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                onClick={() => setSelectedOrgan(label)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all cursor-pointer hover:scale-105 ${
                   isActive ? activeColor : 'bg-white/5 border-white/10 text-white/35'
                 }`}
               >
                 <span className={`w-2 h-2 rounded-full ${isActive ? dotColor : 'bg-white/20'}`} />
                 {label}
-              </div>
+              </button>
             );
           })}
         </div>
@@ -610,6 +646,33 @@ export function BodyTransformationTab() {
         </div>
 
       </div>
+
+      {/* Organ Detail Modal */}
+      {selectedOrgan && ORGAN_DETAILS[selectedOrgan] && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end justify-center z-50 p-4" onClick={() => setSelectedOrgan(null)}>
+          <div className="bg-gradient-to-b from-[#001a35] to-[#002a52] border border-white/20 rounded-3xl p-6 max-w-lg w-full mb-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white text-xl font-medium">{ORGAN_DETAILS[selectedOrgan].title}</h3>
+              <button onClick={() => setSelectedOrgan(null)} className="text-white/40 hover:text-white">✕</button>
+            </div>
+            <div className="mb-4">
+              <p className="text-white/60 text-xs uppercase tracking-wider mb-2">Affected by</p>
+              <div className="flex flex-wrap gap-2">
+                {ORGAN_DETAILS[selectedOrgan].addictions.map(a => (
+                  <span key={a} className="px-2 py-1 bg-blue-500/20 border border-blue-500/30 text-blue-300 text-xs rounded-full">{a}</span>
+                ))}
+              </div>
+            </div>
+            <div className="mb-4">
+              <p className="text-white/80 text-sm leading-relaxed">{ORGAN_DETAILS[selectedOrgan].description}</p>
+            </div>
+            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+              <p className="text-green-400 text-xs uppercase tracking-wider mb-2">Your Recovery</p>
+              <p className="text-white/80 text-sm leading-relaxed">{ORGAN_DETAILS[selectedOrgan].recovery}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
