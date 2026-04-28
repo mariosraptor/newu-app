@@ -1,49 +1,20 @@
-import { useState, useEffect, useRef } from 'react';
-import { Camera, TrendingUp, Crown, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Camera, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface Selfie {
-  id: string;
   day: number;
   date: string;
   imageData: string;
 }
 
-// Compress image to JPEG at reduced size to avoid localStorage quota issues
-const compressImage = (file: File, maxWidth = 800): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onloadend = () => {
-      const img = new Image();
-      img.onerror = reject;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let { width, height } = img;
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.7));
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
-  });
-
 export function ProgressTab() {
   const { user } = useAuth();
-  const [isPremium, setIsPremium] = useState(false);
   const [selfies, setSelfies] = useState<Selfie[]>([]);
   const [loading, setLoading] = useState(true);
   const [daysClean, setDaysClean] = useState(0);
   const [selectedSelfie, setSelectedSelfie] = useState<Selfie | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -53,113 +24,94 @@ export function ProgressTab() {
 
   const loadData = async () => {
     if (!user) return;
-    try {
-      const [subData, journeyData] = await Promise.all([
-        supabase.from('subscription_status').select('is_premium').eq('user_id', user.id).maybeSingle(),
-        supabase
-          .from('journeys')
-          .select('quit_datetime')
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .maybeSingle(),
-      ]);
 
-      setIsPremium(subData.data?.is_premium || false);
+    const { data: journeyData } = await supabase
+      .from('journeys')
+      .select('quit_datetime')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle();
 
-      if (journeyData.data) {
-        const quitDate = new Date(journeyData.data.quit_datetime);
-        const diffMs = Date.now() - quitDate.getTime();
-        setDaysClean(Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24))));
-      }
-    } catch (e) {
-      console.error('Failed to load progress data:', e);
-    } finally {
-      loadSelfies();
-      setLoading(false);
+    if (journeyData) {
+      const quitDate = new Date(journeyData.quit_datetime);
+      const diffMs = Date.now() - quitDate.getTime();
+      setDaysClean(Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    } else {
+      // Fallback to localStorage
+      try {
+        const raw = localStorage.getItem('onboardingData');
+        if (raw) {
+          const od = JSON.parse(raw);
+          if (od.quitDate) {
+            const diffMs = Date.now() - new Date(od.quitDate).getTime();
+            setDaysClean(Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+          }
+        }
+      } catch (_) { /* ignore */ }
     }
+
+    loadSelfies();
+    setLoading(false);
   };
 
   const loadSelfies = () => {
-    try {
-      const stored = localStorage.getItem('newu_selfies');
-      if (stored) {
-        const arr: Selfie[] = JSON.parse(stored);
-        arr.sort((a, b) => b.day - a.day);
-        setSelfies(arr);
-      } else {
+    const storedSelfies = localStorage.getItem('newu_selfies');
+    if (storedSelfies) {
+      try {
+        const selfiesArray: Selfie[] = JSON.parse(storedSelfies);
+        selfiesArray.sort((a, b) => b.day - a.day);
+        setSelfies(selfiesArray);
+      } catch (e) {
+        console.error('Failed to parse selfies from localStorage:', e);
         setSelfies([]);
       }
-    } catch {
+    } else {
       setSelfies([]);
     }
   };
 
-  const handleSelfieUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSelfieUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
+
     const file = e.target.files[0];
+    const reader = new FileReader();
 
-    // Reset input so same file can be re-selected later
-    if (fileInputRef.current) fileInputRef.current.value = '';
-
-    try {
-      // Fetch quit_datetime fresh from Supabase at upload time so the day
-      // number is always accurate — never stale from React state.
-      let currentDaysClean = daysClean;
-      if (user) {
-        const { data } = await supabase
-          .from('journeys')
-          .select('quit_datetime')
-          .eq('user_id', user.id)
-          .eq('is_active', true)
-          .maybeSingle();
-        if (data?.quit_datetime) {
-          const diffMs = Date.now() - new Date(data.quit_datetime).getTime();
-          currentDaysClean = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
-          setDaysClean(currentDaysClean);
-        }
-      }
-
-      const base64 = await compressImage(file);
-
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
       const newSelfie: Selfie = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        day: currentDaysClean,
+        day: daysClean,
         date: new Date().toLocaleDateString(),
         imageData: base64,
       };
 
+      const storedSelfies = localStorage.getItem('newu_selfies');
       let selfiesArray: Selfie[] = [];
-      try {
-        const stored = localStorage.getItem('newu_selfies');
-        if (stored) selfiesArray = JSON.parse(stored);
-      } catch {}
-
-      selfiesArray.unshift(newSelfie);
-
-      try {
-        localStorage.setItem('newu_selfies', JSON.stringify(selfiesArray));
-      } catch {
-        // Quota exceeded — drop the oldest selfie and retry once
-        selfiesArray = [newSelfie, ...selfiesArray.slice(1, -1)];
+      if (storedSelfies) {
         try {
-          localStorage.setItem('newu_selfies', JSON.stringify(selfiesArray));
-        } catch (storageErr) {
-          console.error('Storage quota exceeded even after pruning:', storageErr);
-        }
+          selfiesArray = JSON.parse(storedSelfies);
+        } catch (_) { /* ignore */ }
       }
 
+      selfiesArray.unshift(newSelfie);
+      localStorage.setItem('newu_selfies', JSON.stringify(selfiesArray));
       loadSelfies();
-    } catch (err) {
-      console.error('Failed to process image:', err);
-    }
+    };
+
+    reader.onerror = (error) => {
+      console.error('FileReader error:', error);
+    };
+
+    reader.readAsDataURL(file);
   };
 
-  const deleteSelfie = (id: string) => {
+  const deleteSelfie = (day: number) => {
+    const storedSelfies = localStorage.getItem('newu_selfies');
+    if (!storedSelfies) return;
+
     try {
-      const stored = localStorage.getItem('newu_selfies');
-      if (!stored) return;
-      const filtered: Selfie[] = JSON.parse(stored).filter((s: Selfie) => s.id !== id);
-      localStorage.setItem('newu_selfies', JSON.stringify(filtered));
+      const selfiesArray: Selfie[] = JSON.parse(storedSelfies);
+      const filteredSelfies = selfiesArray.filter((s) => s.day !== day);
+      localStorage.setItem('newu_selfies', JSON.stringify(filteredSelfies));
       loadSelfies();
       setSelectedSelfie(null);
     } catch (e) {
@@ -185,13 +137,7 @@ export function ProgressTab() {
 
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 mb-6">
           <label className="flex items-center justify-center gap-3 cursor-pointer">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleSelfieUpload}
-              className="hidden"
-            />
+            <input type="file" accept="image/*" onChange={handleSelfieUpload} className="hidden" />
             <div className="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center">
               <Camera className="w-6 h-6 text-blue-400" />
             </div>
@@ -201,47 +147,6 @@ export function ProgressTab() {
             </div>
           </label>
         </div>
-
-        {!isPremium && (
-          <div className="bg-gradient-to-br from-yellow-500/20 to-yellow-600/20 border border-yellow-500/30 rounded-2xl p-6 mb-6">
-            <div className="flex items-center gap-3 mb-4">
-              <Crown className="w-6 h-6 text-yellow-400" />
-              <div className="text-yellow-400 font-medium">Premium Feature</div>
-            </div>
-            <p className="text-white/90 text-sm mb-4">
-              Upgrade to NewU Pro to unlock AI-powered transformation animations showing your body's
-              recovery vs. deterioration timeline.
-            </p>
-            <button className="w-full py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg text-sm font-medium">
-              Unlock AI Transformations
-            </button>
-          </div>
-        )}
-
-        {isPremium && (
-          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20 mb-6">
-            <h3 className="text-white font-medium mb-4">AI Body Evolution Simulator</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-                <div className="text-red-400 text-sm font-medium mb-2">Continued Use Path</div>
-                <div className="aspect-square bg-white/5 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-8 h-8 text-red-400 transform rotate-180" />
-                </div>
-                <div className="text-white/60 text-xs mt-2">Shows projected decline</div>
-              </div>
-              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
-                <div className="text-green-400 text-sm font-medium mb-2">Recovery Path</div>
-                <div className="aspect-square bg-white/5 rounded-lg flex items-center justify-center">
-                  <TrendingUp className="w-8 h-8 text-green-400" />
-                </div>
-                <div className="text-white/60 text-xs mt-2">Shows projected improvement</div>
-              </div>
-            </div>
-            <div className="text-center text-white/60 text-xs mt-4">
-              AI analysis placeholder - Upload more selfies to generate comparison
-            </div>
-          </div>
-        )}
 
         <div className="space-y-4">
           <h3 className="text-white font-medium">Your Progress Timeline</h3>
@@ -254,7 +159,7 @@ export function ProgressTab() {
             <div className="grid grid-cols-2 gap-4">
               {selfies.map((selfie) => (
                 <div
-                  key={selfie.id}
+                  key={selfie.day}
                   onClick={() => setSelectedSelfie(selfie)}
                   className="bg-white/10 backdrop-blur-lg rounded-2xl p-3 border border-white/20 cursor-pointer hover:bg-white/20 transition-all"
                 >
@@ -300,7 +205,7 @@ export function ProgressTab() {
             />
             <div className="flex gap-3">
               <button
-                onClick={() => deleteSelfie(selectedSelfie.id)}
+                onClick={() => deleteSelfie(selectedSelfie.day)}
                 className="flex-1 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl font-medium transition-all"
               >
                 Delete Photo

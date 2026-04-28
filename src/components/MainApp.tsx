@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Gauge, AlertTriangle, Leaf, TrendingUp, DollarSign, Brain, Cpu, User } from 'lucide-react';
+import { Gauge, AlertTriangle, Leaf, TrendingUp, DollarSign, Brain, Cpu, User, Activity } from 'lucide-react';
 import { DashboardTab } from './tabs/DashboardTab';
 import { TriggerMapperTab } from './tabs/TriggerMapperTab';
 import { BotanicalTab } from './tabs/BotanicalTab';
@@ -8,11 +8,12 @@ import { SavingsTab } from './tabs/SavingsTab';
 import { WellnessHubTab } from './tabs/WellnessHubTab';
 import { NovaTab } from './tabs/NovaTab';
 import { ProfileSettingsTab } from './tabs/ProfileSettingsTab';
+import { BodyTransformationTab } from './tabs/BodyTransformationTab';
 import { EmergencyButton } from './emergency/EmergencyButton';
 import { SomaticResetModal } from './emergency/SomaticResetModal';
 import { useStealth } from '../contexts/StealthContext';
 
-type Tab = 'dashboard' | 'triggers' | 'botanical' | 'progress' | 'savings' | 'wellness' | 'nova' | 'profile';
+type Tab = 'dashboard' | 'triggers' | 'botanical' | 'progress' | 'savings' | 'wellness' | 'nova' | 'profile' | 'body';
 
 export function MainApp() {
   const { appDisplayName, getTerminology } = useStealth();
@@ -27,6 +28,7 @@ export function MainApp() {
     { id: 'savings' as Tab, icon: DollarSign, label: 'Savings' },
     { id: 'wellness' as Tab, icon: Brain, label: 'Wellness' },
     { id: 'nova' as Tab, icon: Cpu, label: 'Nova' },
+    { id: 'body' as Tab, icon: Activity, label: 'Body' },
     { id: 'profile' as Tab, icon: User, label: 'Settings' },
   ];
 
@@ -47,6 +49,7 @@ export function MainApp() {
       {activeTab === 'savings' && <SavingsTab />}
       {activeTab === 'wellness' && <WellnessHubTab />}
       {activeTab === 'nova' && <NovaTab />}
+      {activeTab === 'body' && <BodyTransformationTab />}
       {activeTab === 'profile' && <ProfileSettingsTab />}
 
       <nav className="fixed bottom-0 left-0 right-0 bg-[#001F3F] border-t border-white/10 px-2 py-2 overflow-x-auto">

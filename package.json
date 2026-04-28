@@ -8,21 +8,14 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "build:android": "npm run build && npx cap sync android",
-    "open:android": "npx cap open android",
-    "sync": "npx cap sync"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
-    "@capacitor/android": "^8.3.0",
-    "@capacitor/cli": "^8.3.0",
-    "@capacitor/core": "^8.3.0",
-    "@supabase/supabase-js": "^2.105.0",
+    "@supabase/supabase-js": "^2.57.4",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "stripe": "^22.1.0"
+    "stripe": "^16.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useUpgrade } from '../../contexts/UpgradeContext';
 import { Leaf, Lock, Crown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { useUpgrade } from '../../contexts/UpgradeContext';
 
 interface BotanicalProtocol {
   id: string;
@@ -17,7 +17,7 @@ interface BotanicalProtocol {
 const botanicalDatabase: BotanicalProtocol[] = [
   {
     id: '1',
-    addiction: 'Nicotine',
+    addiction: 'Smoking',
     herb: 'Lobelia (Indian Tobacco)',
     description: 'Contains lobeline, which mimics nicotine without addiction',
     dosage: '50-100mg capsule during cravings',
@@ -26,7 +26,7 @@ const botanicalDatabase: BotanicalProtocol[] = [
   },
   {
     id: '2',
-    addiction: 'Nicotine',
+    addiction: 'Smoking',
     herb: 'Mullein Leaf Tea',
     description: 'Lung repair herb that mimics the ritual of smoking',
     dosage: '1 cup, 3x daily',
@@ -62,19 +62,55 @@ const botanicalDatabase: BotanicalProtocol[] = [
   },
   {
     id: '6',
-    addiction: 'Nicotine',
+    addiction: 'Smoking',
     herb: 'Black Pepper Essential Oil',
     description: 'Inhalation reduces cigarette cravings instantly',
     dosage: '2-3 deep inhales from bottle during cravings',
     science: 'Caryophyllene activates CB2 receptors, mimicking nicotine throat sensation',
     ritual: 'Carry in pocket. When craving hits, 10 deep inhales + cold water.',
   },
+  {
+    id: '7',
+    addiction: 'Vaping',
+    herb: 'NAC (N-Acetyl Cysteine)',
+    description: 'Repairs lung tissue damaged by vaping aerosols. Restores glutathione.',
+    dosage: '600mg twice daily',
+    science: 'Breaks down acrolein deposits in airways',
+    ritual: 'Morning and evening with water. Visualise airways clearing.',
+  },
+  {
+    id: '8',
+    addiction: 'Sugar',
+    herb: 'Gymnema Sylvestre',
+    description: 'Blocks sweet taste receptors, reducing sugar cravings instantly',
+    dosage: '400mg before meals',
+    science: 'Gymnemic acids temporarily block sweetness perception',
+    ritual: 'Take 20 min before meals. Notice how less appealing sweet food becomes.',
+  },
+  {
+    id: '9',
+    addiction: 'Gambling',
+    herb: 'Rhodiola Rosea + Magnesium Glycinate',
+    description: 'Reduces impulsivity and dopamine-seeking behaviour',
+    dosage: 'Rhodiola 200mg morning + Magnesium 400mg evening',
+    science: 'Adaptogens regulate HPA axis stress response. Magnesium calms overactive reward circuits',
+    ritual: 'Morning dose before any financial decisions. Evening dose with journaling.',
+  },
+  {
+    id: '10',
+    addiction: 'Porn',
+    herb: 'Ashwagandha + Saffron',
+    description: 'Rebalances dopamine and reduces compulsive sexual behaviour',
+    dosage: 'Ashwagandha 300mg + Saffron 30mg daily',
+    science: 'KSM-66 ashwagandha reduces cortisol 28%. Saffron modulates serotonin pathways',
+    ritual: 'Take with breakfast. Replace urge with 20 pushups and cold water.',
+  },
 ];
 
 export function BotanicalTab() {
   const { user } = useAuth();
-  const [isPremium, setIsPremium] = useState(false);
   const { openUpgradeModal } = useUpgrade();
+  const [isPremium, setIsPremium] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedProtocol, setSelectedProtocol] = useState<BotanicalProtocol | null>(null);
 
@@ -132,8 +168,14 @@ export function BotanicalTab() {
                   <li>• Smartwatch Integration</li>
                 </ul>
               </div>
-              <button onClick={openUpgradeModal} className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-medium hover:from-yellow-600 hover:to-yellow-700 transition-all">
-                Upgrade to NewU Pro — from $6.99/month
+              <button
+                onClick={() => {
+                  console.log('[BotanicalTab] upgrade button clicked');
+                  openUpgradeModal();
+                }}
+                className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-xl font-medium hover:from-yellow-400 hover:to-yellow-500 transition-all"
+              >
+                Start Free Trial — Upgrade to Pro
               </button>
             </div>
           </div>
