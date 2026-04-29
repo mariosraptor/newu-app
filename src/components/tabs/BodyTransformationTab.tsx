@@ -387,37 +387,50 @@ function BloodRecoveryPanel({ group, minutesClean }: { group: AddictionGroup; mi
 // ── Main component ────────────────────────────────────────────────────────────
 
 
-const ORGAN_DETAILS: Record<string, { title: string; addictions: string[]; description: string; recovery: string }> = {
+const ORGAN_DETAILS: Record<string, { title: string; addictions: string[]; description: string; recovery: string; alcoholFacts?: string[] }> = {
   Heart: {
     title: 'Heart',
     addictions: ['Smoking', 'Vaping', 'Alcohol', 'Gambling'],
     description: 'Your heart is one of the first organs to benefit from quitting. Within 20 minutes blood pressure normalizes. Within 24 hours heart attack risk begins dropping.',
-    recovery: 'After 1 year clean your risk of coronary heart disease is half that of someone still using. After 5 years your stroke risk matches that of a non-user.'
+    recovery: 'After 1 year clean your risk of coronary heart disease is half that of someone still using. After 5 years your stroke risk matches that of a non-user.',
   },
   Lungs: {
     title: 'Lungs',
     addictions: ['Smoking', 'Vaping'],
     description: 'Your lungs begin clearing tar and mucus within days of quitting. Cilia — the tiny hairs that sweep debris out — start regrowing within weeks.',
-    recovery: 'After 1 month lung function improves by up to 30%. After 1 year coughing and shortness of breath reduce significantly. After 10 years lung cancer risk drops by 50%.'
+    recovery: 'After 1 month lung function improves by up to 30%. After 1 year coughing and shortness of breath reduce significantly. After 10 years lung cancer risk drops by 50%.',
   },
   Brain: {
     title: 'Brain',
     addictions: ['Smoking', 'Vaping', 'Alcohol', 'Gambling', 'Porn', 'Social Media'],
     description: "Your brain's reward circuitry is rewiring itself. Dopamine receptors that were desensitized by addiction are resetting to healthy baseline levels.",
-    recovery: 'After 2 weeks prefrontal cortex function improves — better decisions, less impulsivity. After 3 months grey matter density measurably increases. After 1 year the brain is largely rewired.'
+    recovery: 'After 2 weeks prefrontal cortex function improves — better decisions, less impulsivity. After 3 months grey matter density measurably increases. After 1 year the brain is largely rewired.',
+    alcoholFacts: [
+      'Alcohol is a neurotoxin — directly damages neurons and communication between them',
+      'Chronic use reduces brain volume — shrinks hippocampus and prefrontal cortex',
+      'Interferes with memory — damages the hippocampus, key to forming new memories',
+      'Worsens sleep quality — reduces REM sleep affecting mental and emotional recovery',
+      'Raises baseline anxiety — initially relaxes but increases long-term anxiety levels',
+      'Crashes dopamine — causes artificial spikes followed by motivation-killing crashes',
+    ],
   },
   Liver: {
     title: 'Liver',
     addictions: ['Alcohol', 'Sugar'],
     description: 'The liver is remarkable — it can regenerate itself. Within 24 hours of stopping alcohol, liver enzyme levels begin dropping. Fat deposits start clearing.',
-    recovery: 'After 1 month liver fat reduces significantly. After 3 months liver enzymes approach normal range. After 1 year the liver can be nearly fully regenerated in many cases.'
+    recovery: 'After 1 month liver fat reduces significantly. After 3 months liver enzymes approach normal range. After 1 year the liver can be nearly fully regenerated in many cases.',
+    alcoholFacts: [
+      'No safe level exists — even low amounts have measurable negative effects on the body',
+      'Increases cancer risk — especially breast, liver, colon and esophageal cancer',
+      'Disrupts hormones — reduces testosterone in men, alters hormones in women',
+    ],
   },
   Skin: {
     title: 'Skin',
     addictions: ['Smoking', 'Vaping', 'Alcohol', 'Sugar', 'Gambling', 'Porn', 'Social Media'],
     description: 'Skin reflects your internal health. Smoking reduces blood flow and oxygen to skin. Alcohol dehydrates. Sugar causes inflammation. All accelerate ageing.',
-    recovery: 'After 1 week skin hydration improves noticeably. After 1 month skin tone evens out. After 3 months collagen production increases and fine lines reduce.'
-  }
+    recovery: 'After 1 week skin hydration improves noticeably. After 1 month skin tone evens out. After 3 months collagen production increases and fine lines reduce.',
+  },
 };
 
 export function BodyTransformationTab() {
@@ -652,7 +665,7 @@ export function BodyTransformationTab() {
       {/* Organ Detail Modal */}
       {selectedOrgan && ORGAN_DETAILS[selectedOrgan] && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-end justify-center z-50 p-4" onClick={() => setSelectedOrgan(null)}>
-          <div className="bg-gradient-to-b from-[#001a35] to-[#002a52] border border-white/20 rounded-3xl p-6 max-w-lg w-full mb-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-gradient-to-b from-[#001a35] to-[#002a52] border border-white/20 rounded-3xl p-6 max-w-lg w-full mb-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-white text-xl font-medium">{ORGAN_DETAILS[selectedOrgan].title}</h3>
               <button onClick={() => setSelectedOrgan(null)} className="text-white/40 hover:text-white">✕</button>
@@ -668,10 +681,25 @@ export function BodyTransformationTab() {
             <div className="mb-4">
               <p className="text-white/80 text-sm leading-relaxed">{ORGAN_DETAILS[selectedOrgan].description}</p>
             </div>
-            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4">
+            <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 mb-3">
               <p className="text-green-400 text-xs uppercase tracking-wider mb-2">Your Recovery</p>
               <p className="text-white/80 text-sm leading-relaxed">{ORGAN_DETAILS[selectedOrgan].recovery}</p>
             </div>
+            {isAlcohol && ORGAN_DETAILS[selectedOrgan].alcoholFacts && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                <p className="text-red-400 text-xs font-semibold uppercase tracking-wider mb-3">
+                  What alcohol was doing to this organ
+                </p>
+                <div className="space-y-2">
+                  {ORGAN_DETAILS[selectedOrgan].alcoholFacts!.map((fact, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <span className="text-red-400/70 flex-shrink-0 mt-0.5">⚠</span>
+                      <p className="text-red-200/75 text-sm leading-relaxed">{fact}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

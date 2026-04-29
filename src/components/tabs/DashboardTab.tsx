@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { TrendingUp, Zap, Calendar, Award, Heart } from 'lucide-react';
+import { TrendingUp, Zap, Calendar, Award, Heart, FlaskConical } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStealth } from '../../contexts/StealthContext';
@@ -46,6 +46,105 @@ const HEALTH_EVENTS = [
   { minutes: 2628000, label: '5 years',  event: 'Stroke risk same as someone who never smoked' },
   { minutes: 5256000, label: '10 years', event: 'Lung cancer risk dropped by 50%' },
 ];
+
+// ─── Science insights ─────────────────────────────────────────────────────────
+
+interface ScienceFact { fact: string; source: string; }
+
+const SCIENCE_FACTS: Record<string, ScienceFact[]> = {
+  alcohol: [
+    { fact: 'Your liver processes about 1 standard drink per hour. More than that and the excess directly damages liver cells.', source: 'NIAAA' },
+    { fact: 'Alcohol disrupts sleep architecture — it suppresses REM sleep, which is essential for emotional regulation and memory consolidation.', source: 'Sleep Medicine Reviews' },
+    { fact: 'Even moderate drinking raises blood pressure and increases stroke risk by 14%.', source: 'AHA, 2019' },
+    { fact: 'Alcohol increases cortisol — your primary stress hormone — making anxiety measurably worse over time.', source: 'JAMA' },
+    { fact: 'The liver can regenerate itself within weeks of stopping — one of the body\'s most remarkable biological abilities.', source: 'Hepatology Journal' },
+    { fact: 'Alcohol reduces grey matter in the prefrontal cortex — the region responsible for decision-making and impulse control.', source: 'Nature Neuroscience' },
+    { fact: 'After 3 days without alcohol, blood pressure measurably drops and hydration normalizes.', source: 'BMJ, 2018' },
+    { fact: 'HDL (good) cholesterol begins improving within 3 months of stopping alcohol.', source: 'NEJM' },
+  ],
+  smoking: [
+    { fact: 'Nicotine reaches the brain in 8 seconds — faster than almost any other addictive substance, which is why the habit forms so quickly.', source: 'CDC' },
+    { fact: 'Carbon monoxide in cigarettes reduces blood oxygen levels by up to 15%, starving your organs of oxygen.', source: 'NHS' },
+    { fact: 'Within 72 hours of quitting, lung cilia — the tiny hairs that clean your airways — begin to recover.', source: 'American Lung Association' },
+    { fact: 'After just 20 minutes without a cigarette, heart rate and blood pressure begin to normalize.', source: 'AHA, 2020' },
+    { fact: 'After 1 year clean, your risk of coronary heart disease drops to half that of a smoker\'s.', source: 'AHA' },
+    { fact: 'Blood oxygen levels normalize to 98–99% within 24 hours of stopping — your organs are already getting more oxygen.', source: 'Mayo Clinic' },
+    { fact: 'Lung capacity increases by up to 30% within 3 months of quitting.', source: 'BTS Research' },
+    { fact: 'After 10 years, lung cancer risk drops by 50% compared to continued smoking.', source: 'WHO' },
+  ],
+  dopamine: [
+    { fact: 'Dopamine is released not by pleasure, but in anticipation of reward — creating the \'wanting\' that drives compulsive behavior.', source: 'Nature Neuroscience' },
+    { fact: 'The prefrontal cortex — responsible for impulse control — can measurably regrow grey matter within 3 months of abstinence.', source: 'fMRI studies' },
+    { fact: 'Behavioral addictions (gambling, porn, social media) activate the exact same brain circuits as substance addictions.', source: 'APA, 2018' },
+    { fact: 'Heart rate variability — a key marker of stress resilience — improves within days of removing addictive stimuli.', source: 'APA, 2019' },
+    { fact: 'Dopamine receptor sensitivity normalizes within 1 month, meaning everyday activities feel rewarding again.', source: 'Nature Neuroscience' },
+    { fact: 'Cortisol levels drop measurably within 3 days of stopping behavioral addictions.', source: 'Stanford, 2021' },
+    { fact: 'Sleep quality and melatonin regulation normalize within 1 week of removing addictive screen stimulation.', source: 'Journal of Sleep Research' },
+    { fact: 'Stress hormone baseline reduces by 30% within 3 months of abstinence from addictive behaviors.', source: 'Stanford, 2021' },
+  ],
+  sugar: [
+    { fact: 'Sugar activates the same dopamine circuits as cocaine — both create surges followed by crashes that drive craving.', source: 'Princeton Neuroscience' },
+    { fact: 'Insulin resistance — a precursor to type 2 diabetes — can begin reversing within just 2 weeks of reducing sugar.', source: 'Diabetes Care' },
+    { fact: 'High sugar intake raises inflammatory markers in the blood directly linked to depression and anxiety.', source: 'JAMA, 2017' },
+    { fact: 'After 2 weeks without added sugar, taste receptors recalibrate — fruit and whole foods taste sweeter.', source: 'Journal of Nutrition' },
+    { fact: 'HbA1c — a 3-month average of blood sugar — measurably improves within 1 month of dietary change.', source: 'Nature' },
+    { fact: 'Triglyceride levels begin dropping within 1 week of reducing sugar intake.', source: 'Journal of Clinical Lipidology' },
+    { fact: 'Gut microbiome diversity begins improving within days of removing refined sugar from your diet.', source: 'Nature' },
+    { fact: 'Blood glucose levels stabilize within 24 hours of significantly reducing sugar consumption.', source: 'Diabetes Care' },
+  ],
+};
+
+function getScienceFacts(addictions: string[]): ScienceFact[] {
+  const a = addictions.map(x => x.toLowerCase().replace('-', '_'));
+  if (a.some(x => ['smoking', 'vaping', 'snus'].includes(x))) return SCIENCE_FACTS.smoking;
+  if (a.includes('alcohol')) return SCIENCE_FACTS.alcohol;
+  if (a.includes('sugar')) return SCIENCE_FACTS.sugar;
+  return SCIENCE_FACTS.dopamine;
+}
+
+function getAddictionsFromLocalStorage(): string[] {
+  try {
+    const raw = localStorage.getItem('onboardingData');
+    if (raw) { const d = JSON.parse(raw); return d.addictions ?? []; }
+  } catch {}
+  return [];
+}
+
+// ─── Science insight card ─────────────────────────────────────────────────────
+
+function ScienceInsightCard({ addictions }: { addictions: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const facts = getScienceFacts(addictions);
+  const todayIndex = Math.floor(Date.now() / 86_400_000) % facts.length;
+  const { fact, source } = facts[todayIndex];
+
+  return (
+    <div className="bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 mb-8 overflow-hidden">
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="w-full p-5 text-left flex items-start gap-3"
+      >
+        <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+          <FlaskConical className="w-5 h-5 text-blue-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-blue-400/70 text-[10px] uppercase tracking-widest font-semibold mb-1">Today's Science Insight</p>
+          <p className={`text-white/85 text-sm leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}>
+            {fact}
+          </p>
+          {!expanded && (
+            <p className="text-blue-400/60 text-xs mt-1.5">Tap to read more ↓</p>
+          )}
+        </div>
+      </button>
+      {expanded && (
+        <div className="px-5 pb-4 pt-0">
+          <p className="text-white/30 text-xs italic">Source: {source}</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Stats computation ────────────────────────────────────────────────────────
 
@@ -239,6 +338,7 @@ export function DashboardTab() {
     milestoneProgress: 0,
   });
   const [celebrationDay, setCelebrationDay] = useState<number | null>(null);
+  const [addictions, setAddictions] = useState<string[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Check milestone celebration
@@ -268,23 +368,26 @@ export function DashboardTab() {
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [quitDate]);
 
-  // Load quit date: localStorage immediately, then Supabase
+  // Load quit date + addictions: localStorage immediately, then Supabase
   useEffect(() => {
     const local = getQuitDateFromLocalStorage();
+    const localAddictions = getAddictionsFromLocalStorage();
     if (local) {
       setQuitDate(local);
       setLoading(false);
     }
+    if (localAddictions.length) setAddictions(localAddictions);
 
     if (user) {
       supabase
         .from('journeys')
-        .select('quit_datetime')
+        .select('quit_datetime, addiction_type')
         .eq('user_id', user.id)
         .eq('is_active', true)
         .maybeSingle()
         .then(({ data }) => {
           if (data?.quit_datetime) setQuitDate(data.quit_datetime);
+          if (data?.addiction_type) setAddictions([data.addiction_type]);
           setLoading(false);
         })
         .catch(() => setLoading(false));
@@ -355,6 +458,9 @@ export function DashboardTab() {
             </div>
           </div>
         </div>
+
+        {/* Science insight — shown when addictions are known */}
+        {addictions.length > 0 && <ScienceInsightCard addictions={addictions} />}
 
         {/* Dopamine bank + Days online */}
         <div className="grid grid-cols-2 gap-4 mb-8">
