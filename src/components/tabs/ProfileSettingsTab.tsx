@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { User, LogOut, Shield, Bell, Crown, Camera, Save, Share2, Copy } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -38,11 +38,44 @@ export function ProfileSettingsTab() {
     country: 'United States',
   });
 
+  // ── Notification state ────────────────────────────────────────────────────
+  const [notifEnabled, setNotifEnabled] = useState(false);
+  const [notifTime, setNotifTime] = useState('09:00');
+  const [notifStatus, setNotifStatus] = useState<'idle' | 'success' | 'error' | 'unsupported'>('idle');
+  const notifIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     if (user) {
       loadData();
     }
   }, [user]);
+
+  // Load saved notification preferences
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('newu_notifications');
+      if (stored) {
+        const prefs = JSON.parse(stored);
+        setNotifEnabled(prefs.enabled || false);
+        setNotifTime(prefs.time || '09:00');
+      }
+    } catch {}
+  }, []);
+
+  // Schedule the daily check interval whenever enabled/time changes
+  useEffect(() => {
+    if (notifIntervalRef.current) clearInterval(notifIntervalRef.current);
+    if (!notifEnabled) return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+    notifIntervalRef.current = setInterval(() => {
+      const now = new Date();
+      const cur = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      if (cur === notifTime) sendDailyNotification();
+    }, 60_000);
+
+    return () => { if (notifIntervalRef.current) clearInterval(notifIntervalRef.current); };
+  }, [notifEnabled, notifTime]);
 
   const loadData = async () => {
     if (!user) return;
@@ -107,6 +140,72 @@ export function ProfileSettingsTab() {
   const handleShareWhatsApp = () => {
     const whatsappText = encodeURIComponent("I wanted to share something that's genuinely helping me. NewU is a recovery app that uses science, AI and real support tools to help people break addictions. If you or someone you know is struggling — this could change everything. Download it here: https://newu-app.netlify.app");
     window.open(`https://wa.me/?text=${whatsappText}`, '_blank');
+  };
+
+  // ── Notification helpers ──────────────────────────────────────────────────
+
+  const getDaysClean = (): number => {
+    try {
+      const raw = localStorage.getItem('onboardingData');
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d.quitDate) return Math.max(0, Math.floor((Date.now() - new Date(d.quitDate).getTime()) / 86_400_000));
+      }
+    } catch {}
+    return 0;
+  };
+
+  const getDailyMessage = (): string => {
+    const days = getDaysClean();
+    const idx = Math.floor(Date.now() / 86_400_000) % 3;
+    return [
+      `Day ${days} — You're still here. That takes courage.`,
+      `Your body has been healing for ${days} days. Keep going.`,
+      'Nova is thinking of you. How are you feeling today?',
+    ][idx];
+  };
+
+  const sendDailyNotification = () => {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const todayStr = new Date().toDateString();
+    if (localStorage.getItem('newu_last_notification_date') === todayStr) return;
+    new Notification('NewU — Daily Check-in', { body: getDailyMessage(), icon: '/favicon.ico' });
+    localStorage.setItem('newu_last_notification_date', todayStr);
+  };
+
+  const handleToggleNotifications = async () => {
+    if (notifEnabled) {
+      setNotifEnabled(false);
+      localStorage.setItem('newu_notifications', JSON.stringify({ enabled: false, time: notifTime }));
+      setNotifStatus('idle');
+      return;
+    }
+
+    if (typeof Notification === 'undefined') {
+      setNotifStatus('unsupported');
+      return;
+    }
+
+    let permission = Notification.permission;
+    if (permission === 'default') {
+      permission = await Notification.requestPermission();
+    }
+
+    if (permission === 'granted') {
+      setNotifEnabled(true);
+      localStorage.setItem('newu_notifications', JSON.stringify({ enabled: true, time: notifTime }));
+      setNotifStatus('success');
+      setTimeout(() => setNotifStatus('idle'), 4000);
+    } else {
+      setNotifStatus('error');
+    }
+  };
+
+  const handleNotifTimeChange = (newTime: string) => {
+    setNotifTime(newTime);
+    if (notifEnabled) {
+      localStorage.setItem('newu_notifications', JSON.stringify({ enabled: true, time: newTime }));
+    }
   };
 
   const handleSignOut = async () => {
@@ -312,19 +411,59 @@ export function ProfileSettingsTab() {
               <h2 className="text-white font-medium">Notifications</h2>
             </div>
 
-            <div className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
-                  <Bell className="w-5 h-5 text-blue-400" />
+            <div className="p-4">
+              <button
+                onClick={handleToggleNotifications}
+                className="w-full flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center">
+                    <Bell className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-white font-medium">Daily Check-ins</div>
+                    <div className="text-white/60 text-sm">
+                      {notifEnabled ? `Enabled · ${notifTime}` : 'Remind me to log my progress'}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <div className="text-white font-medium">Daily Check-ins</div>
-                  <div className="text-white/60 text-sm">Remind me to log my progress</div>
+                <div className={`w-12 h-7 rounded-full transition-all flex-shrink-0 ${notifEnabled ? 'bg-blue-500' : 'bg-white/20'}`}>
+                  <div className={`w-5 h-5 bg-white rounded-full mt-1 transition-all ${notifEnabled ? 'ml-6' : 'ml-1'}`} />
                 </div>
-              </div>
-              <div className="w-12 h-7 bg-white/20 rounded-full">
-                <div className="w-5 h-5 bg-white rounded-full mt-1 ml-1" />
-              </div>
+              </button>
+
+              {notifEnabled && (
+                <div className="mt-4">
+                  <label className="text-white/60 text-xs uppercase tracking-wider font-medium mb-2 block">
+                    Notification Time
+                  </label>
+                  <input
+                    type="time"
+                    value={notifTime}
+                    onChange={(e) => handleNotifTimeChange(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#001a35] border border-white/20 rounded-lg text-white focus:outline-none focus:border-blue-500"
+                  />
+                  <p className="text-white/35 text-xs mt-2 leading-relaxed">
+                    Requires browser tab open. Messages rotate daily.
+                  </p>
+                </div>
+              )}
+
+              {notifStatus === 'success' && (
+                <div className="mt-3 px-4 py-2.5 bg-green-500/20 border border-green-500/30 text-green-400 rounded-xl text-sm">
+                  Notifications enabled! You'll receive daily check-ins.
+                </div>
+              )}
+              {notifStatus === 'error' && (
+                <div className="mt-3 px-4 py-2.5 bg-red-500/20 border border-red-500/30 text-red-400 rounded-xl text-sm">
+                  Please enable notifications in your browser settings.
+                </div>
+              )}
+              {notifStatus === 'unsupported' && (
+                <div className="mt-3 px-4 py-2.5 bg-yellow-500/20 border border-yellow-500/30 text-yellow-400 rounded-xl text-sm">
+                  Your browser doesn't support notifications.
+                </div>
+              )}
             </div>
           </div>
 
