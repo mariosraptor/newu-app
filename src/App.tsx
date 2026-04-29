@@ -94,6 +94,26 @@ function AppContent() {
       .maybeSingle();
 
     if (data) {
+      // Sync full journey data to localStorage so all tabs work on this device
+      const { data: journeyData } = await supabase
+        .from('journeys')
+        .select('addiction_type, quit_datetime, daily_cost, my_why')
+        .eq('user_id', user.id)
+        .eq('is_active', true);
+
+      if (journeyData && journeyData.length > 0) {
+        const addictions = journeyData.map((j: any) => j.addiction_type);
+        const dailyCosts: Record<string, number> = {};
+        journeyData.forEach((j: any) => { dailyCosts[j.addiction_type] = j.daily_cost; });
+        const onboardingData = {
+          addictions,
+          dailyCosts,
+          quitDate: journeyData[0].quit_datetime,
+          myWhy: journeyData[0].my_why || '',
+          completedAt: new Date().toISOString()
+        };
+        localStorage.setItem('onboardingData', JSON.stringify(onboardingData));
+      }
       localStorage.setItem('onboardingCompleted', 'true');
       setHasCompletedOnboarding(true);
     } else {
