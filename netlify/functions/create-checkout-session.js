@@ -37,8 +37,8 @@ exports.handler = async (event) => {
         metadata: { userId },
       },
       metadata: { userId },
-      success_url: 'https://newu-app.netlify.app?upgraded=true',
-      cancel_url: 'https://newu-app.netlify.app',
+      success_url: 'https://newuapp.com?upgraded=true',
+      cancel_url: 'https://newuapp.com',
       allow_promotion_codes: true,
     });
 
