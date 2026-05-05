@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Sparkles } from 'lucide-react';
+import { Send, Sparkles, Crown } from 'lucide-react';
 import Anthropic from '@anthropic-ai/sdk';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+import { useUpgrade } from '../../contexts/UpgradeContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +25,30 @@ interface UserContext {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const HISTORY_KEY = 'newu_nova_history';
+const MSG_COUNT_KEY = 'nova_message_count';
+const MSG_DATE_KEY  = 'nova_message_date';
+const FREE_LIMIT    = 10;
+
+function getTodayISO() { return new Date().toISOString().slice(0, 10); }
+
+function loadTodayCount(): number {
+  try {
+    if (localStorage.getItem(MSG_DATE_KEY) !== getTodayISO()) return 0;
+    return parseInt(localStorage.getItem(MSG_COUNT_KEY) || '0', 10);
+  } catch { return 0; }
+}
+
+function incrementTodayCount(): number {
+  try {
+    const today = getTodayISO();
+    const stored = localStorage.getItem(MSG_DATE_KEY);
+    const prev = stored === today ? parseInt(localStorage.getItem(MSG_COUNT_KEY) || '0', 10) : 0;
+    const next = prev + 1;
+    localStorage.setItem(MSG_DATE_KEY, today);
+    localStorage.setItem(MSG_COUNT_KEY, String(next));
+    return next;
+  } catch { return 0; }
+}
 
 function loadUserContext(): UserContext {
   let firstName = '';
@@ -100,11 +127,25 @@ function saveHistory(messages: Message[]) {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function NovaTab() {
+  const { user } = useAuth();
+  const { openUpgradeModal } = useUpgrade();
+  const [isPremium, setIsPremium] = useState(false);
+  const [todayCount, setTodayCount] = useState(loadTodayCount);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user) checkPremium();
+  }, [user]);
+
+  const checkPremium = async () => {
+    if (!user) return;
+    const { data } = await supabase.from('subscription_status').select('is_premium').eq('user_id', user.id).maybeSingle();
+    setIsPremium(data?.is_premium || false);
+  };
 
   // Initialise: load persisted history or show welcome
   useEffect(() => {
@@ -130,9 +171,12 @@ export function NovaTab() {
 
   const sendMessage = async () => {
     if (!input.trim() || isStreaming) return;
+    if (!isPremium && todayCount >= FREE_LIMIT) return;
 
     const userText = input.trim();
     setInput('');
+    const newCount = incrementTodayCount();
+    setTodayCount(newCount);
 
     const userMsg: Message = {
       id: `u-${Date.now()}`,
@@ -299,43 +343,66 @@ export function NovaTab() {
       {/* Input area */}
       <div className="flex-shrink-0 bg-[#001F3F]/95 backdrop-blur-lg border-t border-white/10 px-4 py-4 pb-24">
         <div className="max-w-2xl mx-auto">
-          {/* Quick actions */}
-          <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
-            {quickActions.map((action) => (
-              <button
-                key={action.label}
-                onClick={() => {
-                  setInput(action.query);
-                  inputRef.current?.focus();
-                }}
-                disabled={isStreaming}
-                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white/80 text-xs rounded-full whitespace-nowrap transition-all border border-white/10 flex-shrink-0"
-              >
-                {action.label}
-              </button>
-            ))}
-          </div>
 
-          {/* Text input */}
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
-              placeholder="Talk to Nova..."
-              disabled={isStreaming}
-              className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-400/60 disabled:opacity-50 transition-colors"
-            />
-            <button
-              onClick={sendMessage}
-              disabled={!input.trim() || isStreaming}
-              className="w-12 h-12 flex items-center justify-center bg-blue-500 hover:bg-blue-400 disabled:bg-white/10 disabled:text-white/30 text-white rounded-2xl transition-all flex-shrink-0"
-            >
-              <Send className="w-4 h-4" />
-            </button>
-          </div>
+          {/* Free limit reached banner */}
+          {!isPremium && todayCount >= FREE_LIMIT ? (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 text-center">
+              <p className="text-white/80 text-sm font-medium mb-1">Daily limit reached</p>
+              <p className="text-white/50 text-xs mb-4 leading-relaxed">
+                You've used your {FREE_LIMIT} free messages today. Upgrade to NewU Pro for unlimited Nova conversations.
+              </p>
+              <button
+                onClick={openUpgradeModal}
+                className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
+              >
+                <Crown className="w-4 h-4" /> Upgrade to Pro — Unlimited Nova
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Free usage counter */}
+              {!isPremium && (
+                <div className="flex justify-end mb-2">
+                  <span className="text-white/30 text-[10px]">{FREE_LIMIT - todayCount} free messages remaining today</span>
+                </div>
+              )}
+
+              {/* Quick actions */}
+              <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
+                {quickActions.map((action) => (
+                  <button
+                    key={action.label}
+                    onClick={() => { setInput(action.query); inputRef.current?.focus(); }}
+                    disabled={isStreaming}
+                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white/80 text-xs rounded-full whitespace-nowrap transition-all border border-white/10 flex-shrink-0"
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Text input */}
+              <div className="flex gap-2">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                  placeholder="Talk to Nova..."
+                  disabled={isStreaming}
+                  className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-400/60 disabled:opacity-50 transition-colors"
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={!input.trim() || isStreaming}
+                  className="w-12 h-12 flex items-center justify-center bg-blue-500 hover:bg-blue-400 disabled:bg-white/10 disabled:text-white/30 text-white rounded-2xl transition-all flex-shrink-0"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

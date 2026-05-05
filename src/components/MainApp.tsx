@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { Gauge, AlertTriangle, Leaf, TrendingUp, DollarSign, Brain, Cpu, User, Activity } from 'lucide-react';
+import { Gauge, AlertTriangle, BookOpen, TrendingUp, DollarSign, Cpu, User, Activity } from 'lucide-react';
 import { DashboardTab } from './tabs/DashboardTab';
 import { TriggerMapperTab } from './tabs/TriggerMapperTab';
-import { BotanicalTab } from './tabs/BotanicalTab';
+import { TreatmentsTab } from './tabs/TreatmentsTab';
 import { ProgressTab } from './tabs/ProgressTab';
 import { SavingsTab } from './tabs/SavingsTab';
-import { WellnessHubTab } from './tabs/WellnessHubTab';
 import { NovaTab } from './tabs/NovaTab';
 import { ProfileSettingsTab } from './tabs/ProfileSettingsTab';
 import { BodyTransformationTab } from './tabs/BodyTransformationTab';
@@ -13,7 +12,7 @@ import { EmergencyButton } from './emergency/EmergencyButton';
 import { SomaticResetModal } from './emergency/SomaticResetModal';
 import { useStealth } from '../contexts/StealthContext';
 
-type Tab = 'dashboard' | 'triggers' | 'botanical' | 'progress' | 'savings' | 'wellness' | 'nova' | 'profile' | 'body';
+type Tab = 'dashboard' | 'triggers' | 'treatments' | 'progress' | 'savings' | 'nova' | 'profile' | 'body';
 
 export function MainApp() {
   const { appDisplayName, getTerminology } = useStealth();
@@ -21,15 +20,14 @@ export function MainApp() {
   const [showEmergency, setShowEmergency] = useState(false);
 
   const tabs = [
-    { id: 'dashboard' as Tab, icon: Gauge, label: 'Dashboard' },
-    { id: 'triggers' as Tab, icon: AlertTriangle, label: getTerminology('Triggers') },
-    { id: 'progress' as Tab, icon: TrendingUp, label: 'Progress' },
-    { id: 'savings' as Tab, icon: DollarSign, label: 'Savings' },
-    { id: 'wellness' as Tab, icon: Brain, label: 'Wellness' },
-    { id: 'botanical' as Tab, icon: Leaf, label: 'Botanical' },
-    { id: 'body' as Tab, icon: Activity, label: 'Body' },
-    { id: 'nova' as Tab, icon: Cpu, label: 'Nova' },
-    { id: 'profile' as Tab, icon: User, label: 'Settings' },
+    { id: 'dashboard'   as Tab, icon: Gauge,        label: 'Dashboard' },
+    { id: 'triggers'    as Tab, icon: AlertTriangle, label: getTerminology('Triggers') },
+    { id: 'progress'    as Tab, icon: TrendingUp,    label: 'Progress' },
+    { id: 'treatments'  as Tab, icon: BookOpen,      label: 'Treatments' },
+    { id: 'savings'     as Tab, icon: DollarSign,    label: 'Savings' },
+    { id: 'body'        as Tab, icon: Activity,      label: 'Body' },
+    { id: 'nova'        as Tab, icon: Cpu,           label: 'Nova' },
+    { id: 'profile'     as Tab, icon: User,          label: 'Settings' },
   ];
 
   return (
@@ -42,15 +40,14 @@ export function MainApp() {
 
       <EmergencyButton onClick={() => setShowEmergency(true)} />
 
-      {activeTab === 'dashboard' && <DashboardTab />}
-      {activeTab === 'triggers' && <TriggerMapperTab />}
-      {activeTab === 'botanical' && <BotanicalTab />}
-      {activeTab === 'progress' && <ProgressTab />}
-      {activeTab === 'savings' && <SavingsTab />}
-      {activeTab === 'wellness' && <WellnessHubTab />}
-      {activeTab === 'nova' && <NovaTab />}
-      {activeTab === 'body' && <BodyTransformationTab />}
-      {activeTab === 'profile' && <ProfileSettingsTab />}
+      {activeTab === 'dashboard'  && <DashboardTab />}
+      {activeTab === 'triggers'   && <TriggerMapperTab />}
+      {activeTab === 'progress'   && <ProgressTab />}
+      {activeTab === 'treatments' && <TreatmentsTab />}
+      {activeTab === 'savings'    && <SavingsTab />}
+      {activeTab === 'nova'       && <NovaTab />}
+      {activeTab === 'body'       && <BodyTransformationTab />}
+      {activeTab === 'profile'    && <ProfileSettingsTab />}
 
       <nav className="fixed bottom-0 left-0 right-0 bg-[#001F3F] border-t border-white/10 px-2 py-2 overflow-x-auto">
         <div className="max-w-4xl mx-auto flex justify-between items-center gap-1">
