@@ -175,31 +175,29 @@ const TEASER_CARDS = [
 // ─── Voice meditation data ─────────────────────────────────────────────────────
 
 const MEDITATION_SENTENCES = [
-  "Take a breath.",
-  "A slow one.",
-  "In through your nose… and out through your mouth.",
-  "You made it to today.",
-  "That matters more than you know.",
-  "Whatever brought you here — whatever you're carrying right now — you don't have to carry it alone anymore.",
-  "Your brain is already healing.",
-  "Right now, as you listen to this, new neural pathways are forming.",
-  "The version of you that you want to become is not a fantasy.",
-  "It is biology.",
-  "It is happening.",
-  "Notice your shoulders.",
-  "Let them drop.",
-  "Notice your jaw.",
-  "Unclench it.",
-  "You are not your past.",
-  "You are not your cravings.",
-  "You are not your worst day.",
-  "You are someone who chose to show up today.",
-  "And that — that is everything.",
-  "When you feel the urge, remember this moment.",
-  "Come back to this breath.",
-  "Come back to this voice.",
-  "You are becoming someone new.",
+  "Close your eyes if you can.",
+  "Take a slow breath in... and let it go.",
+  "You showed up today. That matters more than you know.",
+  "Your brain is healing right now, in this moment.",
+  "Every hour clean is your body choosing you.",
+  "You are not your addiction. You never were.",
+  "The version of you that never quit... is still here.",
+  "Breathe in... and out.",
+  "You have survived every hard day so far. Every single one.",
+  "That is not luck. That is strength.",
+  "The cravings will pass. They always do.",
+  "You don't have to fight them. Just outlast them.",
+  "Picture the person you are becoming.",
+  "They wake up with energy. With clarity. With pride.",
+  "That person is not far away.",
+  "They are just a few more days ahead of you.",
+  "Keep going.",
+  "You are doing something most people never do.",
+  "You are choosing yourself.",
   "One breath at a time.",
+  "One day at a time.",
+  "You've got this.",
+  "Nova is proud of you.",
 ];
 
 const PREFERRED_VOICE_NAMES = ['Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria', 'Allison', 'Susan', 'Kate'];
@@ -616,119 +614,124 @@ function ExerciseModal({ exercise, onClose }: { exercise: ExerciseMeta; onClose:
 function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolean; openUpgradeModal: () => void }) {
   const [phase, setPhase] = useState<'idle' | 'playing' | 'paused' | 'done'>('idle');
   const [currentSentence, setCurrentSentence] = useState(0);
-  const [rate, setRate] = useState(0.85);
+  const [rate, setRate] = useState(0.78);
   const [mood, setMood] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startedAtRef = useRef(0);
   const sentenceRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Controls whether the sentence loop should keep going
+  const isActiveRef = useRef(false);
+  // Holds the 800ms gap timeout so we can cancel it on stop/pause
+  const gapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Tracks which sentence index the loop is currently on (mutable, no re-render)
+  const idxRef = useRef(0);
 
-  const stopTimer = () => {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  const cancelGap = () => {
+    if (gapTimerRef.current) { clearTimeout(gapTimerRef.current); gapTimerRef.current = null; }
   };
 
-  // Auto-scroll active sentence into view
+  // Auto-scroll the highlighted sentence into view
   useEffect(() => {
     sentenceRefs.current[currentSentence]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [currentSentence]);
 
-  // Preload voices on mount
+  // Preload voices on mount + cleanup on unmount
   useEffect(() => {
     window.speechSynthesis?.getVoices();
     const onVC = () => window.speechSynthesis.getVoices();
     window.speechSynthesis?.addEventListener('voiceschanged', onVC);
     return () => {
+      isActiveRef.current = false;
+      cancelGap();
       window.speechSynthesis?.cancel();
-      stopTimer();
       window.speechSynthesis?.removeEventListener('voiceschanged', onVC);
     };
   }, []);
 
-  const buildAndSpeak = (fromIdx: number, speakRate: number) => {
+  // Speak one sentence, then wait 800ms and speak the next
+  const speakFrom = (startIdx: number, speakRate: number) => {
     window.speechSynthesis.cancel();
-    stopTimer();
+    cancelGap();
+    isActiveRef.current = true;
+    idxRef.current = startIdx;
 
-    const sentences = MEDITATION_SENTENCES.slice(fromIdx);
-    if (!sentences.length) return;
-
-    const utt = new SpeechSynthesisUtterance(sentences.join(' '));
-    utt.rate = speakRate;
-    utt.pitch = 0.95;
-    utt.volume = 1.0;
-    const voice = pickVoice();
-    if (voice) utt.voice = voice;
-
-    // Track sentence via charIndex from onboundary
-    utt.onboundary = (e: SpeechSynthesisEvent) => {
-      if (e.name !== 'word' && e.name !== 'sentence') return;
-      let localIdx = 0;
-      let pos = 0;
-      for (let i = 0; i < sentences.length; i++) {
-        if (e.charIndex >= pos) localIdx = i;
-        else break;
-        pos += sentences[i].length + 1;
+    const speakNext = () => {
+      if (!isActiveRef.current) return;
+      const i = idxRef.current;
+      if (i >= MEDITATION_SENTENCES.length) {
+        isActiveRef.current = false;
+        setCurrentSentence(MEDITATION_SENTENCES.length - 1);
+        setPhase('done');
+        return;
       }
-      setCurrentSentence(fromIdx + localIdx);
+
+      setCurrentSentence(i);
+
+      const utt = new SpeechSynthesisUtterance(MEDITATION_SENTENCES[i]);
+      utt.rate = speakRate;
+      utt.pitch = 1.0;
+      utt.volume = 1.0;
+      const voice = pickVoice();
+      if (voice) utt.voice = voice;
+
+      utt.onend = () => {
+        if (!isActiveRef.current) return;
+        idxRef.current = i + 1;
+        // 800ms natural pause between sentences
+        gapTimerRef.current = setTimeout(speakNext, 800);
+      };
+
+      utt.onerror = (e) => {
+        const err = (e as SpeechSynthesisErrorEvent).error;
+        if (err !== 'interrupted' && err !== 'canceled') {
+          isActiveRef.current = false;
+          setPhase('idle');
+        }
+      };
+
+      window.speechSynthesis.speak(utt);
     };
 
-    utt.onend = () => {
-      stopTimer();
-      setCurrentSentence(MEDITATION_SENTENCES.length - 1);
-      setPhase('done');
-    };
-
-    utt.onerror = (e) => {
-      if ((e as SpeechSynthesisErrorEvent).error !== 'interrupted') {
-        stopTimer();
-        setPhase('idle');
-      }
-    };
-
-    window.speechSynthesis.speak(utt);
-    setCurrentSentence(fromIdx);
-
-    // Timer fallback for sentence progress (when onboundary is unreliable)
-    startedAtRef.current = Date.now();
-    const approxMs = (sentences.join(' ').split(' ').length / 120) * 60_000 / speakRate;
-    timerRef.current = setInterval(() => {
-      const pct = Math.min((Date.now() - startedAtRef.current) / approxMs, 1);
-      const idx = Math.min(fromIdx + Math.floor(pct * sentences.length), MEDITATION_SENTENCES.length - 1);
-      setCurrentSentence(idx);
-    }, 400);
+    speakNext();
   };
 
   const handlePlay = () => {
     if (!('speechSynthesis' in window)) return;
     if (phase === 'paused') {
-      window.speechSynthesis.resume();
+      // Resume from the sentence that was paused on
+      speakFrom(idxRef.current, rate);
       setPhase('playing');
-      // Restart timer from current sentence
-      startedAtRef.current = Date.now() - (currentSentence / MEDITATION_SENTENCES.length) * 52_000 / rate;
       return;
     }
-    buildAndSpeak(0, rate);
+    idxRef.current = 0;
+    speakFrom(0, rate);
     setPhase('playing');
     setMood(null);
   };
 
   const handlePause = () => {
-    window.speechSynthesis.pause();
-    stopTimer();
+    isActiveRef.current = false;
+    cancelGap();
+    window.speechSynthesis.cancel();
     setPhase('paused');
+    // idxRef.current already points to the current sentence
   };
 
   const handleStop = () => {
+    isActiveRef.current = false;
+    cancelGap();
     window.speechSynthesis.cancel();
-    stopTimer();
     setPhase('idle');
     setCurrentSentence(0);
+    idxRef.current = 0;
   };
 
   const handleSpeedChange = (newRate: number) => {
     setRate(newRate);
     if (phase === 'playing') {
-      const cs = currentSentence;
-      // Brief pause to let cancel settle, then restart from current sentence
-      setTimeout(() => { buildAndSpeak(cs, newRate); }, 80);
+      const resumeAt = idxRef.current;
+      isActiveRef.current = false;
+      cancelGap();
+      window.speechSynthesis.cancel();
+      setTimeout(() => { speakFrom(resumeAt, newRate); }, 120);
     }
   };
 
@@ -915,8 +918,10 @@ function SectionHeader({ label, icon, open, onToggle }: { label: string; icon: R
 export function TreatmentsTab() {
   const { user } = useAuth();
   const { openUpgradeModal } = useUpgrade();
-  const [isPremium, setIsPremium] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // Instant unlock from cache — Pro users never see the lock screen
+  const cachedPremium = localStorage.getItem('newu_is_premium');
+  const [isPremium, setIsPremium] = useState(cachedPremium === 'true');
+  const [loading, setLoading] = useState(cachedPremium !== 'true');
   const [activeExercise, setActiveExercise] = useState<ExerciseMeta | null>(null);
   const [openSection, setOpenSection] = useState<PSection | null>('cbt');
   const [expandedTechnique, setExpandedTechnique] = useState<string | null>(null);
@@ -960,6 +965,21 @@ export function TreatmentsTab() {
       <div className="px-5 pt-8 pb-6 text-center">
         <h1 className="text-3xl font-light text-white mb-1">Treatment Library</h1>
         <p className="text-white/45 text-sm">Science-backed recovery protocols</p>
+        {/* Debug: tap to toggle premium for testing */}
+        <button
+          onClick={() => {
+            const next = !isPremium;
+            setIsPremium(next);
+            localStorage.setItem('newu_is_premium', String(next));
+          }}
+          className={`mt-3 px-3 py-1 rounded-full text-[10px] font-semibold border transition-all ${
+            isPremium
+              ? 'bg-yellow-500/15 border-yellow-500/25 text-yellow-400'
+              : 'bg-red-500/15 border-red-500/25 text-red-400'
+          }`}
+        >
+          {isPremium ? '✓ Pro active' : '✗ Free — tap to unlock'} (debug)
+        </button>
       </div>
 
       {/* ── FREE: Getting Started ────────────────────────────── */}
