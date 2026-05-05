@@ -918,69 +918,6 @@ export function WellnessHubTab() {
         </div>
 
       </div>
-
-
-        {/* Eastern Wisdom Section */}
-        <div className="bg-gradient-to-b from-[#0a1628] to-[#001a35] rounded-2xl overflow-hidden border border-white/10 mb-4">
-          <div className="relative px-5 pt-5 pb-4 overflow-hidden">
-            <svg width="80" height="80" className="absolute right-4 top-4 opacity-10 pointer-events-none">
-              <circle cx="40" cy="40" r="34" fill="none" stroke="white" strokeWidth="3" strokeDasharray="180 40" strokeLinecap="round" transform="rotate(-30 40 40)" />
-            </svg>
-            <div className="flex items-start gap-3 mb-3">
-              <span className="text-3xl leading-none">🏯</span>
-              <div>
-                <h2 className="text-xl font-bold text-white leading-tight">Eastern Wisdom</h2>
-                <p className="text-white/45 text-xs mt-0.5">Ancient Japanese methods proven by modern science</p>
-              </div>
-            </div>
-            <div className="flex gap-1.5 text-base opacity-35 select-none">
-              {'🌸 🌸 🌸 🌸 🌸'.split(' ').map((b, i) => <span key={i}>{b}</span>)}
-            </div>
-          </div>
-          <div className="bg-[#001a35] divide-y divide-white/5">
-            {EASTERN_TECHNIQUES.map((technique) => {
-              const isExpanded = expandedTechnique === technique.id;
-              return (
-                <div key={technique.id}>
-                  <button
-                    onClick={() => setExpandedTechnique(isExpanded ? null : technique.id)}
-                    className="w-full px-5 py-4 flex items-center gap-4 text-left hover:bg-white/5 transition-colors"
-                  >
-                    <div className="relative flex-shrink-0">
-                      <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-xl flex items-center justify-center text-2xl">
-                        {technique.icon}
-                      </div>
-                      <span className="absolute -bottom-0.5 -right-1 text-[9px] text-white/20 font-medium select-none leading-none">{technique.kanji}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline gap-1.5 flex-wrap mb-0.5">
-                        <span className="text-white text-sm font-bold tracking-wider">{technique.title}</span>
-                        <span className="text-white/25 text-[10px]">·</span>
-                        <span className="text-white/40 text-[11px]">{technique.subtitle}</span>
-                      </div>
-                      <p className="text-amber-400/70 text-xs italic">{technique.tagline}</p>
-                    </div>
-                    <div className="text-white/30 flex-shrink-0 ml-2">
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </div>
-                  </button>
-                  {isExpanded && (
-                    <div className="px-5 pb-5">
-                      <p className="text-white/65 text-sm leading-relaxed mb-4">{technique.content}</p>
-                      <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl p-4">
-                        <p className="text-amber-400 text-[10px] font-bold uppercase tracking-widest mb-2">Practice</p>
-                        <p className="text-amber-200/80 text-sm leading-relaxed">{technique.practice}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <div className="bg-[#001218] px-5 py-3 flex justify-center gap-2 text-base opacity-15 select-none">
-            {'🌸 🌸 🌸 🌸 🌸'.split(' ').map((b, i) => <span key={i}>{b}</span>)}
-          </div>
-        </div>
       {activeExercise && (
         <ExerciseModal
           exercise={activeExercise}
