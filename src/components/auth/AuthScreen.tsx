@@ -252,25 +252,40 @@ const FEATURE_CARDS = [
     icon: '🧠',
     title: 'Nova AI',
     desc: 'Your 3am companion. Never judges. Always listens. Knows your journey.',
+    detail: "Nova is your personal AI companion — available at 3am when cravings hit hardest. She knows your journey, celebrates your wins, and never judges your setbacks. Unlike a therapist, Nova is always there. Unlike a friend, she never gets tired of listening.",
+    tagline: "10 free messages daily. Unlimited with Pro.",
     gradient: 'linear-gradient(135deg, #1e3a8a 0%, #4c1d95 100%)',
     glow: 'rgba(99, 102, 241, 0.35)',
     shimmerDelay: '0.2s',
+    divider: 'border-indigo-400/20',
+    taglineColor: 'text-indigo-300/80',
+    btnBorder: 'border-indigo-400/30 text-indigo-200/80 hover:bg-indigo-500/20',
   },
   {
     icon: '🫀',
     title: 'Body Science',
     desc: 'Watch your organs heal in real time. Science-backed. Day by day.',
+    detail: "Watch your body heal in real time. See exactly which organs are recovering, when your blood oxygen normalizes, when your dopamine receptors reset. Based on real medical research from the AHA, NHS, Mayo Clinic and Nature Neuroscience.",
+    tagline: "Your body started healing the moment you decided to change.",
     gradient: 'linear-gradient(135deg, #7f1d1d 0%, #c2410c 100%)',
     glow: 'rgba(239, 68, 68, 0.3)',
     shimmerDelay: '0.5s',
+    divider: 'border-red-400/20',
+    taglineColor: 'text-red-300/80',
+    btnBorder: 'border-red-400/30 text-red-200/80 hover:bg-red-500/20',
   },
   {
     icon: '🏯',
     title: 'Eastern Wisdom',
     desc: 'Kaizen. Ikigai. Gaman. Ancient methods. Modern results.',
+    detail: "Six ancient Japanese methods — Kaizen, Ikigai, Naikan, Gaman, Wabi-Sabi, DARC — adapted for modern addiction recovery. These aren't motivational quotes. They are battle-tested philosophies used in Japanese hospitals and rehabilitation centers.",
+    tagline: "Wisdom that survived centuries. Proven by modern neuroscience.",
     gradient: 'linear-gradient(135deg, #78350f 0%, #b45309 100%)',
     glow: 'rgba(245, 158, 11, 0.3)',
     shimmerDelay: '0.8s',
+    divider: 'border-amber-400/20',
+    taglineColor: 'text-amber-300/80',
+    btnBorder: 'border-amber-400/30 text-amber-200/80 hover:bg-amber-500/20',
   },
 ];
 
@@ -283,6 +298,7 @@ const FLOATING_BADGES = [
 function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: () => void }) {
   const motto = getDailyMotto();
   const { displayed, done } = useTypewriter("The person you want to be... is still in there.", 48, 1000);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
 
   return (
     <>
@@ -525,23 +541,47 @@ function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: (
 
           {/* Horizontal scroll cards */}
           <div className="overflow-x-auto px-5 pb-4" style={{ scrollbarWidth: 'none' }}>
-            <div className="flex gap-5" style={{ width: 'max-content', paddingRight: '20px' }}>
-              {FEATURE_CARDS.map((card) => (
-                <div
-                  key={card.title}
-                  className="shimmer-card w-72 flex-shrink-0 rounded-2xl p-7"
-                  style={{
-                    background: card.gradient,
-                    boxShadow: `0 8px 40px ${card.glow}`,
-                    ['--shimmer-delay' as string]: card.shimmerDelay,
-                    border: '1px solid rgba(255,255,255,0.1)',
-                  }}
-                >
-                  <span className="text-4xl block mb-5">{card.icon}</span>
-                  <h3 className="text-white font-bold text-lg mb-2">{card.title}</h3>
-                  <p className="text-white/65 text-sm leading-relaxed">{card.desc}</p>
-                </div>
-              ))}
+            <div className="flex gap-5 items-start" style={{ width: 'max-content', paddingRight: '20px' }}>
+              {FEATURE_CARDS.map((card) => {
+                const isOpen = expandedCard === card.title;
+                return (
+                  <div
+                    key={card.title}
+                    className="shimmer-card w-72 flex-shrink-0 rounded-2xl p-6 transition-all duration-300"
+                    style={{
+                      background: card.gradient,
+                      boxShadow: isOpen ? `0 16px 56px ${card.glow}` : `0 8px 40px ${card.glow}`,
+                      ['--shimmer-delay' as string]: card.shimmerDelay,
+                      border: '1px solid rgba(255,255,255,0.1)',
+                    }}
+                  >
+                    <span className="text-4xl block mb-4">{card.icon}</span>
+                    <h3 className="text-white font-bold text-lg mb-2">{card.title}</h3>
+                    <p className="text-white/65 text-sm leading-relaxed mb-4">{card.desc}</p>
+
+                    {/* Learn More button */}
+                    <button
+                      onClick={() => setExpandedCard(isOpen ? null : card.title)}
+                      className={`w-full py-2 rounded-xl text-xs font-semibold transition-all border ${card.btnBorder}`}
+                    >
+                      {isOpen ? 'Got it ↑' : 'Learn More →'}
+                    </button>
+
+                    {/* Expandable detail */}
+                    <div
+                      className="overflow-hidden transition-all duration-400 ease-in-out"
+                      style={{ maxHeight: isOpen ? '260px' : '0' }}
+                    >
+                      <div className={`pt-4 mt-4 border-t ${card.divider} transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
+                        <p className="text-white/80 text-sm leading-relaxed mb-3">{card.detail}</p>
+                        <p className={`text-xs font-medium italic leading-snug ${card.taglineColor}`}>
+                          "{card.tagline}"
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
