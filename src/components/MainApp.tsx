@@ -23,12 +23,12 @@ export function MainApp() {
   const tabs = [
     { id: 'dashboard' as Tab, icon: Gauge, label: 'Dashboard' },
     { id: 'triggers' as Tab, icon: AlertTriangle, label: getTerminology('Triggers') },
-    { id: 'botanical' as Tab, icon: Leaf, label: 'Botanical' },
     { id: 'progress' as Tab, icon: TrendingUp, label: 'Progress' },
     { id: 'savings' as Tab, icon: DollarSign, label: 'Savings' },
     { id: 'wellness' as Tab, icon: Brain, label: 'Wellness' },
-    { id: 'nova' as Tab, icon: Cpu, label: 'Nova' },
+    { id: 'botanical' as Tab, icon: Leaf, label: 'Botanical' },
     { id: 'body' as Tab, icon: Activity, label: 'Body' },
+    { id: 'nova' as Tab, icon: Cpu, label: 'Nova' },
     { id: 'profile' as Tab, icon: User, label: 'Settings' },
   ];
 

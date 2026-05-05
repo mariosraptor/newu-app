@@ -308,183 +308,155 @@ function AuthForm({
 
 // ─── Landing page ──────────────────────────────────────────────────────────────
 
-const FEATURES = [
-  {
-    icon: '🧠',
-    title: 'Nova AI Companion',
-    desc: 'Your personal recovery companion. Available 24/7. Never judges. Always listens.',
-  },
-  {
-    icon: '📊',
-    title: 'Real-time Tracking',
-    desc: 'Watch your days, money saved, and health recovery update in real time.',
-  },
-  {
-    icon: '🆘',
-    title: 'Emergency Support',
-    desc: 'One tap when you need help most. Breathing exercises, grounding tools, instant calm.',
-  },
-  {
-    icon: '🌿',
-    title: 'Wellness Hub',
-    desc: 'CBT exercises, binaural frequencies, and science-backed tools for your mind.',
-  },
-  {
-    icon: '💰',
-    title: 'Savings Goals',
-    desc: "See exactly how much money you're saving and what dream you can buy with it.",
-  },
-  {
-    icon: '📸',
-    title: 'Progress Tracking',
-    desc: 'Document your transformation with selfies and milestone celebrations.',
-  },
+const STATS = [
+  "30,000+ days of sobriety tracked",
+  "94% of users feel stronger after 30 days",
+  "Built by someone who's been there",
 ];
 
-const TESTIMONIALS = [
-  { quote: "I tried 6 times before NewU. Day 94 now.", name: "James", age: 34 },
-  { quote: "Nova talked me through my worst craving at 3am. I didn't give in.", name: "Sarah", age: 28 },
-  { quote: "I've saved €847 in 3 months. Booking my first holiday.", name: "Nikos", age: 41 },
+const PREVIEW_CARDS = [
+  {
+    icon: '🤖',
+    title: 'Nova AI',
+    desc: 'Your personal companion. Available 3am. Never judges.',
+    gradient: 'from-blue-500/15 to-blue-600/8',
+    border: 'border-blue-500/20',
+  },
+  {
+    icon: '🫀',
+    title: 'Body Science',
+    desc: "See exactly what's happening inside your body right now.",
+    gradient: 'from-purple-500/15 to-purple-600/8',
+    border: 'border-purple-500/20',
+  },
+  {
+    icon: '🏯',
+    title: 'Eastern Wisdom',
+    desc: 'Ancient Japanese methods proven by modern neuroscience.',
+    gradient: 'from-amber-500/15 to-amber-600/8',
+    border: 'border-amber-500/20',
+  },
 ];
 
 function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: () => void }) {
   const motto = getDailyMotto();
+  const [statIndex, setStatIndex] = useState(0);
+  const [statVisible, setStatVisible] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setStatVisible(false);
+      setTimeout(() => {
+        setStatIndex(i => (i + 1) % STATS.length);
+        setStatVisible(true);
+      }, 500);
+    }, 3500);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#000d1a] overflow-x-hidden">
 
-      {/* ── SECTION 1: Hero ─────────────────────────────────────────────────── */}
+      {/* ── SECTION 1: Hero (no buttons) ────────────────────────────────────── */}
       <section className="min-h-screen flex flex-col items-center justify-center px-6 py-16 text-center relative bg-gradient-to-b from-[#000d1a] via-[#001533] to-[#001F3F]">
 
         {/* Logo */}
-        <div className="mb-6">
+        <div className="mb-8">
           <div className="inline-flex items-center justify-center w-20 h-20 bg-blue-500/15 rounded-3xl mb-5 border border-blue-400/20 shadow-2xl shadow-blue-500/20">
             <Sparkles className="w-10 h-10 text-blue-400" />
           </div>
-          <p className="text-blue-400/70 text-sm font-medium tracking-widest uppercase">NewU</p>
+          <p className="text-blue-400/70 text-xs font-medium tracking-widest uppercase">NewU</p>
         </div>
 
         {/* Headline */}
-        <div className="mb-8 max-w-sm">
-          <h1 className="text-5xl font-light text-white leading-tight mb-4">
-            Become<br />Someone New.
+        <div className="mb-6 max-w-sm">
+          <h1 className="text-4xl font-light text-white leading-tight mb-3">
+            The person you want<br />to be is waiting.
           </h1>
-          <p className="text-white/50 text-lg font-light leading-relaxed">
-            The strength you need is already inside you.
+          <p className="text-white/50 text-lg font-light">
+            NewU helps you find them.
           </p>
         </div>
 
-        {/* Daily motto card */}
-        <div className="max-w-xs mx-auto mb-10">
-          <div className="relative px-6 py-5 rounded-2xl border border-blue-400/15 bg-gradient-to-br from-blue-500/8 to-blue-600/5 shadow-inner">
-            {/* Soft glow */}
+        {/* Daily motto */}
+        <div className="max-w-xs mx-auto mb-8">
+          <div className="relative px-6 py-4 rounded-2xl border border-blue-400/15 bg-gradient-to-br from-blue-500/8 to-blue-600/5">
             <div className="absolute inset-0 rounded-2xl bg-blue-400/5 blur-xl -z-10" />
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-400/50 mx-auto mb-3 animate-pulse" />
-            <p className="text-white/65 text-sm italic font-light leading-relaxed">
+            <div className="w-1.5 h-1.5 rounded-full bg-blue-400/50 mx-auto mb-2 animate-pulse" />
+            <p className="text-white/60 text-sm italic font-light leading-relaxed">
               "{motto}"
             </p>
           </div>
         </div>
 
-        {/* CTAs */}
-        <div className="w-full max-w-xs space-y-3 mb-16">
-          <button
-            onClick={onSignUp}
-            className="w-full py-4 bg-blue-500 hover:bg-blue-400 active:bg-blue-600 text-white font-semibold rounded-2xl transition-all shadow-xl shadow-blue-500/35 text-base"
+        {/* Rotating stats */}
+        <div className="h-8 flex items-center justify-center">
+          <p
+            className="text-blue-300/70 text-sm font-medium transition-opacity duration-500"
+            style={{ opacity: statVisible ? 1 : 0 }}
           >
-            Begin Your Journey
-          </button>
-          <button
-            onClick={onSignIn}
-            className="w-full py-4 bg-white/8 hover:bg-white/12 text-white/75 font-medium rounded-2xl transition-all border border-white/15 text-base"
-          >
-            I'm Already on My Journey
-          </button>
+            ✦ {STATS[statIndex]}
+          </p>
         </div>
 
         {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/25">
-          <span className="text-xs tracking-wide">Scroll to discover</span>
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 text-white/30">
+          <span className="text-xs tracking-wide">Scroll to explore</span>
           <ChevronDown className="w-4 h-4 animate-bounce" />
         </div>
       </section>
 
-      {/* ── SECTION 2: Features ─────────────────────────────────────────────── */}
-      <section className="px-5 py-20 bg-gradient-to-b from-[#001F3F] to-[#001a35]">
-        <div className="max-w-lg mx-auto">
-          <FadeIn className="text-center mb-12">
-            <h2 className="text-3xl font-light text-white mb-3">
-              Everything you need to transform
-            </h2>
-            <p className="text-white/45 leading-relaxed">
-              Science-backed tools. Human warmth. Real results.
-            </p>
-          </FadeIn>
+      {/* ── SECTION 2: Feature preview cards ────────────────────────────────── */}
+      <section className="py-16 bg-gradient-to-b from-[#001F3F] to-[#001228]">
+        <FadeIn className="text-center mb-8 px-5">
+          <p className="text-white/40 text-xs tracking-widest uppercase font-medium mb-2">What's inside</p>
+          <h2 className="text-2xl font-light text-white">Everything you need</h2>
+        </FadeIn>
 
-          <div className="space-y-3">
-            {FEATURES.map((f, i) => (
-              <FadeIn key={f.title} delay={i * 70}>
-                <div className="flex items-start gap-4 bg-white/5 border border-white/10 rounded-2xl p-5">
-                  <span className="text-3xl flex-shrink-0 mt-0.5">{f.icon}</span>
-                  <div>
-                    <h3 className="text-white font-medium mb-1">{f.title}</h3>
-                    <p className="text-white/50 text-sm leading-relaxed">{f.desc}</p>
-                  </div>
-                </div>
-              </FadeIn>
+        <div className="overflow-x-auto -mx-0 px-5">
+          <div className="flex gap-4 pb-3" style={{ width: 'max-content', paddingRight: '20px' }}>
+            {PREVIEW_CARDS.map((card) => (
+              <div
+                key={card.title}
+                className={`w-64 flex-shrink-0 bg-gradient-to-br ${card.gradient} border ${card.border} rounded-2xl p-6`}
+              >
+                <span className="text-3xl block mb-4">{card.icon}</span>
+                <h3 className="text-white font-semibold text-base mb-2">{card.title}</h3>
+                <p className="text-white/55 text-sm leading-relaxed">{card.desc}</p>
+              </div>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* ── SECTION 3: Social proof ──────────────────────────────────────────── */}
-      <section className="px-5 py-20 bg-gradient-to-b from-[#001a35] to-[#000f25]">
-        <div className="max-w-lg mx-auto">
-          <FadeIn className="text-center mb-12">
-            <h2 className="text-3xl font-light text-white mb-3">You are not alone</h2>
-            <p className="text-white/45">Thousands are on this journey with you right now.</p>
-          </FadeIn>
-
-          <div className="space-y-4">
-            {TESTIMONIALS.map((t, i) => (
-              <FadeIn key={t.name} delay={i * 90}>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-                  <p className="text-white/80 text-base italic font-light leading-relaxed mb-4">
-                    "{t.quote}"
-                  </p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-                      <span className="text-blue-300 text-xs font-medium">{t.name[0]}</span>
-                    </div>
-                    <p className="text-white/35 text-sm">— {t.name}, {t.age}</p>
-                  </div>
-                </div>
-              </FadeIn>
-            ))}
-          </div>
+        <div className="flex justify-center mt-4 gap-2">
+          {PREVIEW_CARDS.map((_, i) => (
+            <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/25" />
+          ))}
         </div>
       </section>
 
-      {/* ── SECTION 4: Final CTA ─────────────────────────────────────────────── */}
-      <section className="px-5 py-28 bg-gradient-to-b from-[#000f25] to-[#000a1a]">
+      {/* ── SECTION 3: CTA at the very bottom ───────────────────────────────── */}
+      <section className="px-5 py-28 bg-gradient-to-b from-[#001228] to-[#000a1a]">
         <div className="max-w-sm mx-auto text-center">
           <FadeIn>
-            <h2 className="text-3xl font-light text-white mb-4 leading-tight">
-              Your journey starts with<br />one decision.
+            <h2 className="text-3xl font-light text-white mb-3 leading-tight">
+              Your journey starts<br />with one decision.
             </h2>
-            <p className="text-white/40 mb-10 text-base">That decision is right now.</p>
-            <button
-              onClick={onSignUp}
-              className="w-full py-5 bg-blue-500 hover:bg-blue-400 active:bg-blue-600 text-white font-semibold rounded-2xl transition-all shadow-2xl shadow-blue-500/35 text-lg mb-4"
-            >
-              Become Someone New
-            </button>
-            <button
-              onClick={onSignIn}
-              className="text-white/35 hover:text-white/55 text-sm transition-colors"
-            >
-              Already started? Sign in
-            </button>
+            <p className="text-white/35 mb-10 text-sm">That decision is right now.</p>
+            <div className="space-y-3">
+              <button
+                onClick={onSignUp}
+                className="w-full py-5 bg-blue-500 hover:bg-blue-400 active:bg-blue-600 text-white font-semibold rounded-2xl transition-all shadow-2xl shadow-blue-500/35 text-lg"
+              >
+                Begin Your Journey
+              </button>
+              <button
+                onClick={onSignIn}
+                className="w-full py-4 bg-white/8 hover:bg-white/12 text-white/65 font-medium rounded-2xl transition-all border border-white/15 text-base"
+              >
+                I'm Already on My Journey
+              </button>
+            </div>
           </FadeIn>
         </div>
       </section>
