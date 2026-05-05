@@ -634,6 +634,27 @@ function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: (
               <p className="text-white/25 text-xs mt-6 tracking-wide">
                 Free to start. No credit card required.
               </p>
+
+              <p className="text-white/40 text-xs mt-4 pb-4 text-center leading-relaxed">
+                By continuing you agree to our{' '}
+                <a
+                  href="https://newuapp.com/terms.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-white/60 hover:text-white/80 transition-colors"
+                >
+                  Terms of Service
+                </a>
+                {' '}and{' '}
+                <a
+                  href="https://newuapp.com/privacy-policy.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-white/60 hover:text-white/80 transition-colors"
+                >
+                  Privacy Policy
+                </a>
+              </p>
             </Reveal>
           </div>
         </section>
