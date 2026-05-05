@@ -115,21 +115,22 @@ export function BotanicalTab() {
   const [selectedProtocol, setSelectedProtocol] = useState<BotanicalProtocol | null>(null);
 
   useEffect(() => {
-    if (user) {
-      checkPremiumStatus();
-    }
+    checkPremiumStatus();
   }, [user]);
 
   const checkPremiumStatus = async () => {
-    if (!user) return;
+    const cached = localStorage.getItem('newu_is_premium');
+    if (cached === 'true') { setIsPremium(true); setLoading(false); }
 
+    if (!user) { setLoading(false); return; }
     const { data } = await supabase
       .from('subscription_status')
       .select('is_premium')
       .eq('user_id', user.id)
       .maybeSingle();
-
-    setIsPremium(data?.is_premium || false);
+    const premium = data?.is_premium || false;
+    setIsPremium(premium);
+    localStorage.setItem('newu_is_premium', premium.toString());
     setLoading(false);
   };
 

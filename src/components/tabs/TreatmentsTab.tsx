@@ -172,18 +172,63 @@ const TEASER_CARDS = [
   },
 ];
 
-// ─── Voice visualization ───────────────────────────────────────────────────────
+// ─── Voice meditation data ─────────────────────────────────────────────────────
 
-const VISUALIZATION_SCRIPT =
-  'Close your eyes. Take a deep breath. You are safe. You are stronger than any craving. ' +
-  'Picture yourself one year from today — completely free. Your skin is clear. Your mind is sharp. ' +
-  'The people you love look at you with pride. You wake up every morning with energy and purpose. ' +
-  'This is not a dream. This is who you are becoming. Every day you choose this path, you move closer to this version of yourself. ' +
-  'The old habits are fading. They no longer define you. You are someone new. ' +
-  'Take another deep breath. When you are ready, open your eyes. ' +
-  "And remember — you already are that person. You just have to keep showing up.";
+const MEDITATION_SENTENCES = [
+  "Take a breath.",
+  "A slow one.",
+  "In through your nose… and out through your mouth.",
+  "You made it to today.",
+  "That matters more than you know.",
+  "Whatever brought you here — whatever you're carrying right now — you don't have to carry it alone anymore.",
+  "Your brain is already healing.",
+  "Right now, as you listen to this, new neural pathways are forming.",
+  "The version of you that you want to become is not a fantasy.",
+  "It is biology.",
+  "It is happening.",
+  "Notice your shoulders.",
+  "Let them drop.",
+  "Notice your jaw.",
+  "Unclench it.",
+  "You are not your past.",
+  "You are not your cravings.",
+  "You are not your worst day.",
+  "You are someone who chose to show up today.",
+  "And that — that is everything.",
+  "When you feel the urge, remember this moment.",
+  "Come back to this breath.",
+  "Come back to this voice.",
+  "You are becoming someone new.",
+  "One breath at a time.",
+];
 
-const SCRIPT_DURATION_MS = 70_000;
+const PREFERRED_VOICE_NAMES = ['Samantha', 'Karen', 'Moira', 'Fiona', 'Victoria', 'Allison', 'Susan', 'Kate'];
+
+function pickVoice(): SpeechSynthesisVoice | undefined {
+  const voices = window.speechSynthesis.getVoices();
+  for (const name of PREFERRED_VOICE_NAMES) {
+    const v = voices.find(v => v.name.includes(name));
+    if (v) return v;
+  }
+  return (
+    voices.find(v => v.lang === 'en-GB') ??
+    voices.find(v => v.lang === 'en-AU') ??
+    voices.find(v => v.lang.startsWith('en')) ??
+    voices[0]
+  );
+}
+
+const MOOD_RESPONSES: Record<string, string> = {
+  calm:      "That stillness you feel? It's yours. You didn't borrow it from anything. It came from inside you. Hold onto it.",
+  stronger:  "Good. Because you are. Every time you pause and breathe instead of reaching — that's you getting stronger. I see it.",
+  emotional: "That's okay. Sometimes healing feels like release. Let it come. You're safe here, and I'm right here with you.",
+};
+
+const SPEED_OPTIONS = [
+  { label: '0.75×', value: 0.75 },
+  { label: '1×',    value: 1.0  },
+  { label: '1.25×', value: 1.25 },
+];
 
 // ─── Shared exercise sub-components ───────────────────────────────────────────
 
@@ -566,72 +611,126 @@ function ExerciseModal({ exercise, onClose }: { exercise: ExerciseMeta; onClose:
   );
 }
 
-// ─── Voice guided visualization ────────────────────────────────────────────────
+// ─── Nova Voice Journey ────────────────────────────────────────────────────────
 
 function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolean; openUpgradeModal: () => void }) {
   const [phase, setPhase] = useState<'idle' | 'playing' | 'paused' | 'done'>('idle');
-  const [progress, setProgress] = useState(0);
+  const [currentSentence, setCurrentSentence] = useState(0);
+  const [rate, setRate] = useState(0.85);
   const [mood, setMood] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const elapsedRef = useRef(0);
-  const lastTickRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const startedAtRef = useRef(0);
+  const sentenceRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  const stopTick = () => {
-    if (intervalRef.current !== null) { clearInterval(intervalRef.current); intervalRef.current = null; }
+  const stopTimer = () => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
   };
 
-  const startTick = () => {
-    lastTickRef.current = Date.now();
-    intervalRef.current = setInterval(() => {
-      const now = Date.now();
-      elapsedRef.current += now - lastTickRef.current;
-      lastTickRef.current = now;
-      setProgress(Math.min((elapsedRef.current / SCRIPT_DURATION_MS) * 100, 99));
-    }, 300);
-  };
+  // Auto-scroll active sentence into view
+  useEffect(() => {
+    sentenceRefs.current[currentSentence]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [currentSentence]);
 
-  const handlePlay = () => {
-    if (!('speechSynthesis' in window)) return;
-
-    if (phase === 'paused') {
-      window.speechSynthesis.resume();
-      setPhase('playing');
-      startTick();
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    stopTick();
-    elapsedRef.current = 0;
-
-    const utt = new SpeechSynthesisUtterance(VISUALIZATION_SCRIPT);
-    utt.rate = 0.85;
-    utt.pitch = 0.95;
-
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = ['Samantha', 'Google UK English Female', 'Victoria', 'Karen', 'Moira'];
-    const voice = preferred.map(n => voices.find(v => v.name.includes(n))).find(Boolean) ?? voices.find(v => v.lang.startsWith('en')) ?? undefined;
-    if (voice) utt.voice = voice;
-
-    utt.onend = () => { stopTick(); setProgress(100); setPhase('done'); };
-    utt.onerror = () => { stopTick(); setPhase('idle'); };
-
-    window.speechSynthesis.speak(utt);
-    setPhase('playing');
-    setProgress(0);
-    setMood(null);
-    startTick();
-  };
-
-  const handlePause = () => { window.speechSynthesis.pause(); stopTick(); setPhase('paused'); };
-  const handleStop = () => { window.speechSynthesis.cancel(); stopTick(); elapsedRef.current = 0; setPhase('idle'); setProgress(0); };
-
+  // Preload voices on mount
   useEffect(() => {
     window.speechSynthesis?.getVoices();
     const onVC = () => window.speechSynthesis.getVoices();
     window.speechSynthesis?.addEventListener('voiceschanged', onVC);
-    return () => { window.speechSynthesis?.cancel(); stopTick(); window.speechSynthesis?.removeEventListener('voiceschanged', onVC); };
+    return () => {
+      window.speechSynthesis?.cancel();
+      stopTimer();
+      window.speechSynthesis?.removeEventListener('voiceschanged', onVC);
+    };
   }, []);
+
+  const buildAndSpeak = (fromIdx: number, speakRate: number) => {
+    window.speechSynthesis.cancel();
+    stopTimer();
+
+    const sentences = MEDITATION_SENTENCES.slice(fromIdx);
+    if (!sentences.length) return;
+
+    const utt = new SpeechSynthesisUtterance(sentences.join(' '));
+    utt.rate = speakRate;
+    utt.pitch = 0.95;
+    utt.volume = 1.0;
+    const voice = pickVoice();
+    if (voice) utt.voice = voice;
+
+    // Track sentence via charIndex from onboundary
+    utt.onboundary = (e: SpeechSynthesisEvent) => {
+      if (e.name !== 'word' && e.name !== 'sentence') return;
+      let localIdx = 0;
+      let pos = 0;
+      for (let i = 0; i < sentences.length; i++) {
+        if (e.charIndex >= pos) localIdx = i;
+        else break;
+        pos += sentences[i].length + 1;
+      }
+      setCurrentSentence(fromIdx + localIdx);
+    };
+
+    utt.onend = () => {
+      stopTimer();
+      setCurrentSentence(MEDITATION_SENTENCES.length - 1);
+      setPhase('done');
+    };
+
+    utt.onerror = (e) => {
+      if ((e as SpeechSynthesisErrorEvent).error !== 'interrupted') {
+        stopTimer();
+        setPhase('idle');
+      }
+    };
+
+    window.speechSynthesis.speak(utt);
+    setCurrentSentence(fromIdx);
+
+    // Timer fallback for sentence progress (when onboundary is unreliable)
+    startedAtRef.current = Date.now();
+    const approxMs = (sentences.join(' ').split(' ').length / 120) * 60_000 / speakRate;
+    timerRef.current = setInterval(() => {
+      const pct = Math.min((Date.now() - startedAtRef.current) / approxMs, 1);
+      const idx = Math.min(fromIdx + Math.floor(pct * sentences.length), MEDITATION_SENTENCES.length - 1);
+      setCurrentSentence(idx);
+    }, 400);
+  };
+
+  const handlePlay = () => {
+    if (!('speechSynthesis' in window)) return;
+    if (phase === 'paused') {
+      window.speechSynthesis.resume();
+      setPhase('playing');
+      // Restart timer from current sentence
+      startedAtRef.current = Date.now() - (currentSentence / MEDITATION_SENTENCES.length) * 52_000 / rate;
+      return;
+    }
+    buildAndSpeak(0, rate);
+    setPhase('playing');
+    setMood(null);
+  };
+
+  const handlePause = () => {
+    window.speechSynthesis.pause();
+    stopTimer();
+    setPhase('paused');
+  };
+
+  const handleStop = () => {
+    window.speechSynthesis.cancel();
+    stopTimer();
+    setPhase('idle');
+    setCurrentSentence(0);
+  };
+
+  const handleSpeedChange = (newRate: number) => {
+    setRate(newRate);
+    if (phase === 'playing') {
+      const cs = currentSentence;
+      // Brief pause to let cancel settle, then restart from current sentence
+      setTimeout(() => { buildAndSpeak(cs, newRate); }, 80);
+    }
+  };
 
   if (!isPremium) {
     return (
@@ -640,7 +739,7 @@ function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolea
           <Lock className="w-7 h-7 text-white/30" />
         </div>
         <h3 className="text-white font-semibold mb-1">Premium Feature</h3>
-        <p className="text-white/40 text-sm mb-5 leading-relaxed">Unlock Nova's guided voice visualization journeys</p>
+        <p className="text-white/40 text-sm mb-5 leading-relaxed">Unlock Nova's guided voice meditation journeys</p>
         <button onClick={openUpgradeModal} className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2">
           <Crown className="w-4 h-4" /> Unlock with Pro
         </button>
@@ -648,95 +747,147 @@ function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolea
     );
   }
 
+  const isActive = phase === 'playing';
+
   return (
-    <div className="px-5 pb-8">
-      {/* Pulsing circle */}
-      <div className="flex justify-center mb-8 pt-4">
-        <div className="relative flex items-center justify-center w-32 h-32">
-          {phase === 'playing' && (
+    <div className="px-5 pb-8 pt-2">
+
+      {/* Pulsing cyan circle */}
+      <div className="flex justify-center mb-6">
+        <div className="relative flex items-center justify-center w-36 h-36">
+          {isActive && (
             <>
-              <div className="absolute inset-0 rounded-full bg-blue-500/10 animate-ping" style={{ animationDuration: '2s' }} />
-              <div className="absolute inset-2 rounded-full bg-blue-500/15 animate-pulse" style={{ animationDuration: '3s' }} />
+              <div className="absolute inset-0 rounded-full border border-cyan-400/20 animate-ping"
+                style={{ animationDuration: '2.5s' }} />
+              <div className="absolute inset-3 rounded-full bg-cyan-500/10 animate-pulse"
+                style={{ animationDuration: '2s' }} />
+              <div className="absolute inset-6 rounded-full bg-cyan-500/15 animate-pulse"
+                style={{ animationDuration: '1.5s', animationDelay: '0.3s' }} />
             </>
           )}
-          <div className="relative w-20 h-20 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Mic className="w-8 h-8 text-blue-400" />
+          <div className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-500 ${
+            isActive
+              ? 'bg-cyan-500/25 border-2 border-cyan-400/50 shadow-lg shadow-cyan-500/30'
+              : 'bg-white/10 border border-white/15'
+          }`}>
+            <Mic className={`w-8 h-8 transition-colors duration-500 ${isActive ? 'text-cyan-400' : 'text-white/40'}`} />
           </div>
         </div>
       </div>
 
-      {/* Progress bar */}
-      <div className="mb-6">
-        <div className="flex justify-between text-xs text-white/40 mb-1.5">
-          <span>Nova's Voice Journey</span>
-          <span>{Math.round(progress)}%</span>
-        </div>
-        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <div className="h-full bg-blue-400 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
-        </div>
-      </div>
-
-      {/* Script preview */}
-      {phase === 'idle' && (
-        <div className="bg-white/5 border border-white/10 rounded-xl p-4 mb-6">
-          <p className="text-white/40 text-xs italic leading-relaxed line-clamp-3">"{VISUALIZATION_SCRIPT}"</p>
-        </div>
-      )}
-
-      {/* Controls */}
+      {/* Controls row */}
       {phase !== 'done' && (
-        <div className="flex justify-center items-center gap-4 mb-6">
+        <div className="flex items-center justify-center gap-4 mb-5">
           {phase === 'playing' ? (
-            <button onClick={handlePause} className="w-16 h-16 rounded-full bg-blue-500/20 border-2 border-blue-500/40 flex items-center justify-center">
-              <Pause className="w-6 h-6 text-blue-400" />
+            <button onClick={handlePause}
+              className="w-14 h-14 rounded-full bg-cyan-500/20 border-2 border-cyan-400/40 flex items-center justify-center hover:bg-cyan-500/30 transition-all">
+              <Pause className="w-5 h-5 text-cyan-400" />
             </button>
           ) : (
-            <button onClick={handlePlay} className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center shadow-xl shadow-blue-500/40">
-              <Play className="w-6 h-6 text-white ml-1" />
+            <button onClick={handlePlay}
+              className="w-14 h-14 rounded-full bg-cyan-500 flex items-center justify-center shadow-xl shadow-cyan-500/40 hover:bg-cyan-400 transition-all">
+              <Play className="w-5 h-5 text-white ml-0.5" />
             </button>
           )}
           {phase !== 'idle' && (
-            <button onClick={handleStop} className="w-11 h-11 rounded-full bg-white/10 border border-white/15 flex items-center justify-center">
-              <X className="w-4 h-4 text-white/50" />
+            <button onClick={handleStop}
+              className="w-10 h-10 rounded-full bg-white/10 border border-white/15 flex items-center justify-center hover:bg-white/20 transition-all">
+              <X className="w-3.5 h-3.5 text-white/50" />
             </button>
           )}
         </div>
       )}
 
-      {/* Playing label */}
-      {phase === 'playing' && (
-        <p className="text-center text-white/40 text-xs mb-6 animate-pulse">Close your eyes and listen…</p>
-      )}
+      {/* Speed control */}
+      <div className="flex justify-center gap-2 mb-6">
+        {SPEED_OPTIONS.map((s) => (
+          <button
+            key={s.value}
+            onClick={() => handleSpeedChange(s.value)}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+              rate === s.value
+                ? 'bg-cyan-500/20 border-cyan-400/40 text-cyan-300'
+                : 'bg-white/8 border-white/15 text-white/40 hover:text-white/65'
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
 
-      {/* After completion */}
+      {/* Script with sentence highlighting */}
+      <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden mb-6">
+        <div className="px-4 py-2.5 border-b border-white/8 flex items-center gap-2">
+          <div className={`w-1.5 h-1.5 rounded-full transition-colors ${isActive ? 'bg-cyan-400 animate-pulse' : 'bg-white/20'}`} />
+          <p className="text-white/40 text-[10px] uppercase tracking-wider font-medium">
+            {phase === 'idle' ? 'Guided Meditation · Nova' : phase === 'done' ? 'Complete' : 'Now Speaking'}
+          </p>
+        </div>
+        <div className="max-h-52 overflow-y-auto px-4 py-3 space-y-2" style={{ scrollbarWidth: 'none' }}>
+          {MEDITATION_SENTENCES.map((s, i) => (
+            <div
+              key={i}
+              ref={el => { sentenceRefs.current[i] = el; }}
+              className={`text-sm leading-relaxed transition-all duration-300 rounded-lg px-2 py-1 ${
+                i === currentSentence && phase !== 'idle'
+                  ? 'text-cyan-200 bg-cyan-500/15 font-medium'
+                  : i < currentSentence && phase !== 'idle'
+                  ? 'text-white/25 line-through'
+                  : 'text-white/55'
+              }`}
+            >
+              {s}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Emotion picker after completion */}
       {phase === 'done' && !mood && (
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-5 text-center">
-          <p className="text-white font-medium mb-1 text-base">How do you feel?</p>
-          <p className="text-white/40 text-xs mb-5">No right answer. Just honest.</p>
+        <div className="bg-cyan-500/8 border border-cyan-500/20 rounded-2xl p-5">
+          <p className="text-white font-medium text-center mb-1">How are you feeling after this?</p>
+          <p className="text-white/35 text-xs text-center mb-5">There's no wrong answer.</p>
           <div className="flex gap-3">
             {[
-              { label: 'Better', emoji: '✨', value: 'better' },
-              { label: 'Same', emoji: '😐', value: 'same' },
-              { label: 'I need support', emoji: '💙', value: 'support' },
+              { emoji: '😌', label: 'Calm',     key: 'calm' },
+              { emoji: '💪', label: 'Stronger', key: 'stronger' },
+              { emoji: '😢', label: 'Emotional', key: 'emotional' },
             ].map((opt) => (
-              <button key={opt.value} onClick={() => setMood(opt.value)} className="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs transition-all">
-                <span className="block text-xl mb-1">{opt.emoji}</span>{opt.label}
+              <button
+                key={opt.key}
+                onClick={() => setMood(opt.key)}
+                className="flex-1 py-3.5 rounded-xl bg-white/8 hover:bg-white/15 border border-white/10 text-white text-xs transition-all"
+              >
+                <span className="block text-2xl mb-1.5">{opt.emoji}</span>
+                {opt.label}
               </button>
             ))}
           </div>
-          <button onClick={() => { setPhase('idle'); setProgress(0); }} className="mt-4 text-xs text-white/30 hover:text-white/50">Play again</button>
+          <button onClick={() => { setPhase('idle'); setCurrentSentence(0); setMood(null); }}
+            className="mt-4 w-full text-xs text-white/30 hover:text-white/50 transition-colors">
+            Listen again
+          </button>
         </div>
       )}
 
-      {mood === 'support' && (
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-5 text-center">
-          <p className="text-white/80 text-sm mb-2">Nova is here for you 💙</p>
-          <p className="text-white/50 text-xs">Head to the Nova tab to talk, anytime.</p>
-        </div>
-      )}
-      {mood && mood !== 'support' && (
-        <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 text-center">
-          <p className="text-white/80 text-sm">{mood === 'better' ? "That's the power of your own mind. Use it." : "That's okay. Every listen builds the habit. Try again tomorrow."}</p>
+      {/* Nova response */}
+      {mood && (
+        <div className="bg-gradient-to-br from-cyan-500/10 to-blue-500/8 border border-cyan-500/20 rounded-2xl p-5">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+              <Mic className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <p className="text-cyan-300/80 text-[10px] font-semibold uppercase tracking-wider mb-1.5">Nova</p>
+              <p className="text-white/80 text-sm leading-relaxed">
+                {MOOD_RESPONSES[mood] ?? "I'm here with you. Whatever you felt — it's valid."}
+              </p>
+            </div>
+          </div>
+          <button onClick={() => { setPhase('idle'); setCurrentSentence(0); setMood(null); }}
+            className="mt-4 w-full text-xs text-white/30 hover:text-white/50 transition-colors">
+            Listen again
+          </button>
         </div>
       )}
     </div>
@@ -774,13 +925,18 @@ export function TreatmentsTab() {
   const [expandedBotanical, setExpandedBotanical] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) checkPremium();
+    checkPremium();
   }, [user]);
 
   const checkPremium = async () => {
-    if (!user) return;
+    const cached = localStorage.getItem('newu_is_premium');
+    if (cached === 'true') { setIsPremium(true); setLoading(false); }
+
+    if (!user) { setLoading(false); return; }
     const { data } = await supabase.from('subscription_status').select('is_premium').eq('user_id', user.id).maybeSingle();
-    setIsPremium(data?.is_premium || false);
+    const premium = data?.is_premium || false;
+    setIsPremium(premium);
+    localStorage.setItem('newu_is_premium', premium.toString());
     setLoading(false);
   };
 

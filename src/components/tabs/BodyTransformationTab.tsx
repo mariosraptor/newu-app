@@ -450,12 +450,17 @@ export function BodyTransformationTab() {
   const loadData = async () => {
     if (!user) return;
 
+    const cached = localStorage.getItem('newu_is_premium');
+    if (cached === 'true') setIsPremium(true);
+
     const [subRes, journeyRes] = await Promise.all([
       supabase.from('subscription_status').select('is_premium').eq('user_id', user.id).maybeSingle(),
       supabase.from('journeys').select('quit_datetime, addiction_type').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
     ]);
 
-    setIsPremium(subRes.data?.is_premium || false);
+    const premium = subRes.data?.is_premium || false;
+    setIsPremium(premium);
+    localStorage.setItem('newu_is_premium', premium.toString());
 
     if (journeyRes.data?.quit_datetime) {
       const mins = Math.max(0, (Date.now() - new Date(journeyRes.data.quit_datetime).getTime()) / 60000);

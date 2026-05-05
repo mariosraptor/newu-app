@@ -660,17 +660,22 @@ export function WellnessHubTab() {
   }, [isPlaying, frequency]);
 
   useEffect(() => {
-    if (user) checkPremiumStatus();
+    checkPremiumStatus();
   }, [user]);
 
   const checkPremiumStatus = async () => {
+    const cached = localStorage.getItem('newu_is_premium');
+    if (cached === 'true') setIsPremium(true);
+
     if (!user) return;
     const { data } = await supabase
       .from('subscription_status')
       .select('is_premium')
       .eq('user_id', user.id)
       .maybeSingle();
-    setIsPremium(data?.is_premium || false);
+    const premium = data?.is_premium || false;
+    setIsPremium(premium);
+    localStorage.setItem('newu_is_premium', premium.toString());
   };
 
   const startBinauralBeats = async () => {
