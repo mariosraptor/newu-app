@@ -407,23 +407,8 @@ function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: (
             ))}
           </div>
 
-          {/* Floating stat badges */}
-          <div className="absolute inset-0 pointer-events-none select-none hidden sm:block" aria-hidden="true">
-            {FLOATING_BADGES.map((b) => (
-              <div
-                key={b.text}
-                className={`absolute ${b.pos} max-w-[160px]`}
-                style={{ animation: `${b.anim} 4.5s ease-in-out ${b.delay} infinite` }}
-              >
-                <div className="px-3 py-1.5 rounded-full bg-white/8 border border-white/15 backdrop-blur-sm">
-                  <p className="text-white/65 text-[10px] leading-tight">{b.text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
           {/* Center content */}
-          <div className="relative z-10 flex flex-col items-center max-w-sm w-full">
+          <div className="relative z-10 flex flex-col items-center max-w-[600px] w-full">
 
             {/* Logo with pulse ring */}
             <div className="relative mb-8">
@@ -442,7 +427,7 @@ function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: (
 
             {/* Typewriter headline */}
             <div className="mb-7" style={{ animation: 'fade-up-in 0.8s ease-out 0.4s both' }}>
-              <h1 className="text-3xl sm:text-4xl font-light text-white leading-tight min-h-[100px] flex items-center">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-light text-white leading-tight min-h-[100px] flex items-center justify-center text-center">
                 <span>
                   {displayed}
                   {!done && (
@@ -454,7 +439,7 @@ function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: (
             </div>
 
             {/* Glowing motto card */}
-            <div className="w-full mb-8" style={{ animation: 'fade-up-in 0.8s ease-out 0.6s both' }}>
+            <div className="w-full max-w-[480px] mx-auto mb-8" style={{ animation: 'fade-up-in 0.8s ease-out 0.6s both' }}>
               <div className="relative px-6 py-4 rounded-2xl"
                 style={{ background: 'linear-gradient(135deg, rgba(29,78,216,0.15) 0%, rgba(88,28,235,0.10) 100%)', border: '1px solid rgba(96,165,250,0.2)', boxShadow: '0 0 30px rgba(59,130,246,0.1), inset 0 1px 0 rgba(255,255,255,0.05)' }}>
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-400/60 mx-auto mb-2.5 animate-pulse" />
@@ -464,10 +449,10 @@ function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: (
               </div>
             </div>
 
-            {/* Mobile floating badges (inline, not absolute) */}
-            <div className="flex flex-col gap-2 w-full mb-4 sm:hidden" style={{ animation: 'fade-up-in 0.8s ease-out 0.8s both' }}>
+            {/* Stat badges — centered row on all screen sizes */}
+            <div className="flex flex-row flex-wrap justify-center gap-2 w-full mb-8" style={{ animation: 'fade-up-in 0.8s ease-out 0.8s both' }}>
               {FLOATING_BADGES.map((b) => (
-                <div key={b.text} className="px-3 py-1.5 rounded-full bg-white/8 border border-white/12 self-center">
+                <div key={b.text} className="px-3 py-1.5 rounded-full bg-white/8 border border-white/12">
                   <p className="text-white/55 text-[10px]">{b.text}</p>
                 </div>
               ))}
@@ -492,7 +477,7 @@ function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: (
           <div className="absolute inset-0 pointer-events-none"
             style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)', backgroundSize: '44px 44px' }} />
 
-          <div className="relative max-w-lg mx-auto">
+          <div className="relative max-w-[600px] mx-auto">
             <Reveal className="text-center mb-14">
               <p className="text-blue-400/60 text-xs font-semibold tracking-[0.3em] uppercase mb-3">Thousands recovered. One at a time.</p>
               <h2 className="text-3xl font-light text-white leading-tight">Real people.<br />Real stories.</h2>
@@ -532,15 +517,15 @@ function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: (
         <section className="py-24 overflow-hidden"
           style={{ background: 'linear-gradient(180deg, #020d1f 0%, #020814 100%)' }}>
 
-          <Reveal className="text-center mb-12 px-5">
+          <Reveal className="text-center mb-12 px-5 max-w-5xl mx-auto">
             <p className="text-white/35 text-xs font-semibold tracking-[0.3em] uppercase mb-3">What's inside</p>
             <h2 className="text-3xl font-light text-white leading-tight">
               Everything you need<br />to become someone new
             </h2>
           </Reveal>
 
-          {/* Horizontal scroll cards */}
-          <div className="overflow-x-auto px-5 pb-4" style={{ scrollbarWidth: 'none' }}>
+          {/* Mobile: horizontal scroll */}
+          <div className="md:hidden overflow-x-auto px-5 pb-4" style={{ scrollbarWidth: 'none' }}>
             <div className="flex gap-5 items-start" style={{ width: 'max-content', paddingRight: '20px' }}>
               {FEATURE_CARDS.map((card) => {
                 const isOpen = expandedCard === card.title;
@@ -558,25 +543,16 @@ function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: (
                     <span className="text-4xl block mb-4">{card.icon}</span>
                     <h3 className="text-white font-bold text-lg mb-2">{card.title}</h3>
                     <p className="text-white/65 text-sm leading-relaxed mb-4">{card.desc}</p>
-
-                    {/* Learn More button */}
                     <button
                       onClick={() => setExpandedCard(isOpen ? null : card.title)}
                       className={`w-full py-2 rounded-xl text-xs font-semibold transition-all border ${card.btnBorder}`}
                     >
                       {isOpen ? 'Got it ↑' : 'Learn More →'}
                     </button>
-
-                    {/* Expandable detail */}
-                    <div
-                      className="overflow-hidden transition-all duration-400 ease-in-out"
-                      style={{ maxHeight: isOpen ? '260px' : '0' }}
-                    >
+                    <div className="overflow-hidden transition-all duration-400 ease-in-out" style={{ maxHeight: isOpen ? '260px' : '0' }}>
                       <div className={`pt-4 mt-4 border-t ${card.divider} transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
                         <p className="text-white/80 text-sm leading-relaxed mb-3">{card.detail}</p>
-                        <p className={`text-xs font-medium italic leading-snug ${card.taglineColor}`}>
-                          "{card.tagline}"
-                        </p>
+                        <p className={`text-xs font-medium italic leading-snug ${card.taglineColor}`}>"{card.tagline}"</p>
                       </div>
                     </div>
                   </div>
@@ -585,11 +561,46 @@ function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: (
             </div>
           </div>
 
-          {/* Scroll dots */}
-          <div className="flex justify-center gap-1.5 mt-5">
+          {/* Mobile scroll dots */}
+          <div className="flex md:hidden justify-center gap-1.5 mt-5">
             {FEATURE_CARDS.map((_, i) => (
               <div key={i} className="w-1.5 h-1.5 rounded-full bg-white/25" />
             ))}
+          </div>
+
+          {/* Desktop: 3-column grid */}
+          <div className="hidden md:grid grid-cols-3 gap-5 max-w-5xl mx-auto px-6">
+            {FEATURE_CARDS.map((card) => {
+              const isOpen = expandedCard === card.title;
+              return (
+                <div
+                  key={card.title}
+                  className="shimmer-card rounded-2xl p-6 transition-all duration-300 flex flex-col"
+                  style={{
+                    background: card.gradient,
+                    boxShadow: isOpen ? `0 16px 56px ${card.glow}` : `0 8px 40px ${card.glow}`,
+                    ['--shimmer-delay' as string]: card.shimmerDelay,
+                    border: '1px solid rgba(255,255,255,0.1)',
+                  }}
+                >
+                  <span className="text-4xl block mb-4">{card.icon}</span>
+                  <h3 className="text-white font-bold text-lg mb-2">{card.title}</h3>
+                  <p className="text-white/65 text-sm leading-relaxed mb-4 flex-1">{card.desc}</p>
+                  <button
+                    onClick={() => setExpandedCard(isOpen ? null : card.title)}
+                    className={`w-full py-2 rounded-xl text-xs font-semibold transition-all border ${card.btnBorder}`}
+                  >
+                    {isOpen ? 'Got it ↑' : 'Learn More →'}
+                  </button>
+                  <div className="overflow-hidden transition-all duration-400 ease-in-out" style={{ maxHeight: isOpen ? '260px' : '0' }}>
+                    <div className={`pt-4 mt-4 border-t ${card.divider} transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'}`}>
+                      <p className="text-white/80 text-sm leading-relaxed mb-3">{card.detail}</p>
+                      <p className={`text-xs font-medium italic leading-snug ${card.taglineColor}`}>"{card.tagline}"</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -605,7 +616,7 @@ function LandingPage({ onSignUp, onSignIn }: { onSignUp: () => void; onSignIn: (
               style={{ background: 'radial-gradient(circle, rgba(29,78,216,0.15) 0%, transparent 70%)' }} />
           </div>
 
-          <div className="relative max-w-sm mx-auto text-center">
+          <div className="relative max-w-lg mx-auto text-center">
             <Reveal>
               <p className="text-blue-400/60 text-xs font-semibold tracking-[0.3em] uppercase mb-5">Your moment is now</p>
               <h2 className="text-4xl font-light text-white leading-tight mb-4">
