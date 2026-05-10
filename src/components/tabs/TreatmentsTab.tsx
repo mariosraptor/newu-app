@@ -1039,19 +1039,7 @@ export function TreatmentsTab() {
 
   const checkPremium = async () => {
     const cached = localStorage.getItem('newu_is_premium');
-    if (cached === 'true') { setIsPremium(true); setLoading(false); }
-
-    if (!user) { setLoading(false); return; }
-    const { data } = await supabase.from('subscription_status').select('is_premium').eq('user_id', user.id).maybeSingle();
-    const premium = data?.is_premium || false;
-    // Never downgrade from premium - only upgrade
-    if (premium === true) {
-      setIsPremium(true);
-      localStorage.setItem('newu_is_premium', 'true');
-    } else if (localStorage.getItem('newu_is_premium') !== 'true') {
-      setIsPremium(false);
-      localStorage.setItem('newu_is_premium', 'false');
-    }
+    if (cached === 'true') { setIsPremium(true); }
     setLoading(false);
   };
 
