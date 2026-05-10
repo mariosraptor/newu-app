@@ -1024,7 +1024,7 @@ export function TreatmentsTab() {
   const { openUpgradeModal } = useUpgrade();
   // Instant unlock from cache — Pro users never see the lock screen
   const cachedPremium = localStorage.getItem('newu_is_premium');
-  const [isPremium, setIsPremium] = useState(cachedPremium === 'true');
+  const [isPremium, setIsPremium] = useState(localStorage.getItem('newu_is_premium') === 'true');
   const [loading, setLoading] = useState(cachedPremium !== 'true');
   const [activeExercise, setActiveExercise] = useState<ExerciseMeta | null>(null);
   const [openSection, setOpenSection] = useState<PSection | null>('cbt');

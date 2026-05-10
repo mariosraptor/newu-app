@@ -436,7 +436,7 @@ const ORGAN_DETAILS: Record<string, { title: string; addictions: string[]; descr
 export function BodyTransformationTab() {
   const { user } = useAuth();
   const { openUpgradeModal } = useUpgrade();
-  const [isPremium, setIsPremium] = useState(false);
+  const [isPremium, setIsPremium] = useState(localStorage.getItem('newu_is_premium') === 'true');
   const [loading, setLoading] = useState(true);
   const [addictions, setAddictions] = useState<string[]>([]);
   const [minutesClean, setMinutesClean] = useState(0);

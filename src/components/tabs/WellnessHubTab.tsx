@@ -647,7 +647,7 @@ export function WellnessHubTab() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [frequency, setFrequency] = useState<'alpha' | 'beta'>('alpha');
   const [activeExercise, setActiveExercise] = useState<ExerciseMeta | null>(null);
-  const [isPremium, setIsPremium] = useState(false);
+  const [isPremium, setIsPremium] = useState(localStorage.getItem('newu_is_premium') === 'true');
   const [expandedTechnique, setExpandedTechnique] = useState<string | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const leftOscillatorRef = useRef<OscillatorNode | null>(null);

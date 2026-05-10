@@ -110,7 +110,7 @@ const botanicalDatabase: BotanicalProtocol[] = [
 export function BotanicalTab() {
   const { user } = useAuth();
   const { openUpgradeModal } = useUpgrade();
-  const [isPremium, setIsPremium] = useState(false);
+  const [isPremium, setIsPremium] = useState(localStorage.getItem('newu_is_premium') === 'true');
   const [loading, setLoading] = useState(true);
   const [selectedProtocol, setSelectedProtocol] = useState<BotanicalProtocol | null>(null);
 
