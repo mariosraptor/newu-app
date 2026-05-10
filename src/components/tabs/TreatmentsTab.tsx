@@ -172,6 +172,100 @@ const TEASER_CARDS = [
   },
 ];
 
+// ─── Teaser full content (shown inline for Pro users) ─────────────────────────
+
+function TeaserFullContent0() {
+  return (
+    <div className="mt-4 space-y-5 border-t border-white/10 pt-4">
+      <div>
+        <p className="text-white/35 text-[10px] uppercase tracking-widest font-medium mb-2">How CBT works in 21 days</p>
+        <p className="text-white/70 text-sm leading-relaxed">The brain forms new neural pathways through repetition. CBT interrupts automatic negative thought patterns and replaces them with conscious, rational responses. After 21 days of practice, the new pathway becomes the default — not willpower, but rewiring.</p>
+      </div>
+      <div>
+        <p className="text-white/35 text-[10px] uppercase tracking-widest font-medium mb-3">The 3 core principles</p>
+        <div className="space-y-3">
+          {[
+            { n: 1, label: 'The CBT triangle', body: 'Thoughts → Feelings → Behaviour. Change the thought and the behaviour follows. Not the other way around.' },
+            { n: 2, label: 'Cognitive distortions drive relapse', body: 'All-or-nothing thinking, catastrophising, and mind-reading cause 80% of cravings. Naming them defuses them.' },
+            { n: 3, label: 'Behavioural experiments beat willpower', body: 'Testing small new responses builds evidence that you can change. Evidence beats intention every time.' },
+          ].map(({ n, label, body }) => (
+            <div key={n} className="flex gap-3">
+              <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-blue-300 text-xs font-semibold">{n}</span>
+              </div>
+              <div>
+                <p className="text-white text-sm font-medium mb-0.5">{label}</p>
+                <p className="text-white/55 text-xs leading-relaxed">{body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+        <p className="text-blue-300 text-xs font-semibold uppercase tracking-wider mb-2">Why 94% of programs use CBT</p>
+        <p className="text-white/65 text-xs leading-relaxed">Meta-analyses covering 50,000+ participants show a 60% reduction in relapse rates versus no treatment. CBT is not therapy you receive — it is a skill set you build. That is why it lasts.</p>
+      </div>
+    </div>
+  );
+}
+
+function TeaserFullContent1() {
+  const stages = [
+    { time: '20 min',  label: 'Circulation recovers',   body: 'Blood pressure and heart rate begin to normalise. If you smoke, carbon monoxide starts clearing from your blood.' },
+    { time: '8 hrs',   label: 'First craving peak',      body: 'Substance levels in your blood have halved. Expect the first wave of cravings. They will pass — every single one.' },
+    { time: '24 hrs',  label: 'Withdrawal sets in',      body: 'Irritability, anxiety, and headaches are normal and temporary. Your brain is recalibrating. This is healing, not weakness.' },
+    { time: '48 hrs',  label: 'The hardest stretch',     body: 'Physical cravings at maximum intensity. Your body is in full detox. Hydrate, rest, and use every tool available.' },
+    { time: '72 hrs',  label: 'Acute phase ends',        body: 'For most substances, the sharp physical withdrawal begins to ease. You are past the worst of it. Keep going.' },
+    { time: '1 week',  label: 'Body stabilising',        body: 'Physical symptoms largely resolved. Psychological cravings remain but are manageable. Sleep and energy begin to return.' },
+  ];
+  const colors = ['bg-green-500/20 text-green-300', 'bg-amber-500/20 text-amber-300', 'bg-red-500/20 text-red-300', 'bg-red-600/25 text-red-200', 'bg-amber-500/20 text-amber-300', 'bg-green-500/20 text-green-300'];
+  return (
+    <div className="mt-4 space-y-3 border-t border-white/10 pt-4">
+      {stages.map((s, i) => (
+        <div key={s.time} className="flex gap-3">
+          <div className={`rounded-lg px-2 py-1 text-xs font-bold flex-shrink-0 self-start mt-0.5 ${colors[i]}`}>{s.time}</div>
+          <div>
+            <p className="text-white text-sm font-medium mb-0.5">{s.label}</p>
+            <p className="text-white/55 text-xs leading-relaxed">{s.body}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TeaserFullContent2() {
+  const triggers = [
+    {
+      icon: '🏠', name: 'Environmental cues',
+      body: "A specific street corner, the smell of a bar, a particular song — your brain has hard-wired sensory cues directly to craving. This is neurological, not weakness. Identify your top 3 environmental triggers now, and plan your exact response before you encounter them.",
+    },
+    {
+      icon: '😶', name: 'Emotional voids',
+      body: "Boredom, loneliness, stress — and surprisingly, success and celebration. Your brain learned to reach for the substance during these emotional states. The void is not weakness; it is a gap that needs a real substitute, not willpower. Name your top emotional trigger. Then choose its replacement.",
+    },
+    {
+      icon: '🪞', name: 'Social identity',
+      body: "'I'm someone who drinks at parties.' 'This is just what our friend group does.' Identity-based triggers are the hardest because they feel like self-expression. Recovery requires rebuilding your social identity around who you are becoming — not who you were.",
+    },
+  ];
+  return (
+    <div className="mt-4 space-y-4 border-t border-white/10 pt-4">
+      {triggers.map((t) => (
+        <div key={t.name} className="bg-white/5 border border-white/10 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">{t.icon}</span>
+            <p className="text-white font-semibold text-sm">{t.name}</p>
+          </div>
+          <p className="text-white/60 text-xs leading-relaxed">{t.body}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const TEASER_FULL_CONTENT = [TeaserFullContent0, TeaserFullContent1, TeaserFullContent2];
+
 // ─── Voice meditation data ─────────────────────────────────────────────────────
 
 const MEDITATION_SENTENCES = [
@@ -1032,6 +1126,7 @@ export function TreatmentsTab() {
   const [expandedDetox, setExpandedDetox] = useState<string | null>(null);
   const [expandedSupport, setExpandedSupport] = useState<string | null>(null);
   const [expandedBotanical, setExpandedBotanical] = useState<string | null>(null);
+  const [expandedTeaser, setExpandedTeaser] = useState<number | null>(null);
 
   useEffect(() => {
     checkPremium();
@@ -1087,25 +1182,44 @@ export function TreatmentsTab() {
           <span className="text-white/40 text-xs">Getting Started</span>
         </div>
         <div className="space-y-3">
-          {TEASER_CARDS.map((card) => (
-            <div key={card.title} className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
-              <div className="p-5">
-                <h3 className="text-white font-semibold mb-1">{card.title}</h3>
-                <p className="text-white/65 text-sm leading-relaxed mb-4">{card.preview}</p>
-                {/* Blurred hook */}
-                <div className="relative mb-4">
-                  <p className="text-white/60 text-xs leading-relaxed select-none blur-sm">{card.hook}</p>
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-[#001F3F]/20 pointer-events-none" />
+          {TEASER_CARDS.map((card, idx) => {
+            const isExpanded = expandedTeaser === idx;
+            const FullContent = TEASER_FULL_CONTENT[idx];
+            return (
+              <div key={card.title} className="rounded-2xl overflow-hidden border border-white/10 bg-white/5">
+                <div className="p-5">
+                  <h3 className="text-white font-semibold mb-1">{card.title}</h3>
+                  <p className="text-white/65 text-sm leading-relaxed mb-4">{card.preview}</p>
+                  {/* Blurred hook — only show when not expanded */}
+                  {!isExpanded && (
+                    <div className="relative mb-4">
+                      <p className="text-white/60 text-xs leading-relaxed select-none blur-sm">{card.hook}</p>
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-[#001F3F]/20 pointer-events-none" />
+                    </div>
+                  )}
+                  {isPremium ? (
+                    <>
+                      <button
+                        onClick={() => setExpandedTeaser(isExpanded ? null : idx)}
+                        className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                      >
+                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        {isExpanded ? 'Collapse' : 'Read Full Content'}
+                      </button>
+                      {isExpanded && <FullContent />}
+                    </>
+                  ) : (
+                    <button
+                      onClick={openUpgradeModal}
+                      className="w-full py-2.5 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
+                    >
+                      <Crown className="w-3.5 h-3.5" /> Unlock Full Content
+                    </button>
+                  )}
                 </div>
-                <button
-                  onClick={openUpgradeModal}
-                  className="w-full py-2.5 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
-                >
-                  <Crown className="w-3.5 h-3.5" /> Unlock Full Content
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
