@@ -761,30 +761,24 @@ function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolea
   }, [isPremium]);
 
   const runPrefetch = async () => {
-    const apiKey = (import.meta.env.VITE_OPENAI_API_KEY as string | undefined) ?? '';
-    if (!apiKey) {
-      setFetchPhase('ready'); // straight to browser-TTS fallback
-      return;
-    }
-
     setFetchPhase('fetching');
     setFetchProgress(0);
     const urls: string[] = new Array(MEDITATION_SENTENCES.length);
 
     try {
       let done = 0;
-      // Fetch all sentences in parallel for fast loading
       await Promise.all(MEDITATION_SENTENCES.map(async (text, i) => {
-        const res = await fetch('https://api.openai.com/v1/audio/speech', {
+        const res = await fetch('/.netlify/functions/nova-tts', {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ model: 'tts-1-hd', voice: 'shimmer', input: text, speed: 0.82 }),
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text }),
         });
-        if (!res.ok) throw new Error(`OpenAI TTS ${res.status}`);
-        const blob = await res.blob();
+        if (!res.ok) throw new Error(`Nova TTS ${res.status}`);
+        const base64 = await res.text();
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let j = 0; j < binary.length; j++) bytes[j] = binary.charCodeAt(j);
+        const blob = new Blob([bytes], { type: 'audio/mpeg' });
         urls[i] = URL.createObjectURL(blob);
         done++;
         setFetchProgress(done);
@@ -792,7 +786,7 @@ function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolea
       audioUrlsRef.current = urls;
     } catch (err) {
       console.warn('[Nova TTS] falling back to browser SpeechSynthesis:', err);
-      audioUrlsRef.current = []; // empty = use fallback below
+      audioUrlsRef.current = [];
     }
     setFetchPhase('ready');
   };
