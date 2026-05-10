@@ -609,53 +609,128 @@ function ExerciseModal({ exercise, onClose }: { exercise: ExerciseMeta; onClose:
   );
 }
 
-// ─── Nova Voice Journey ────────────────────────────────────────────────────────
+// ─── Nova Voice Journey (OpenAI TTS shimmer) ──────────────────────────────────
 
 function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolean; openUpgradeModal: () => void }) {
+  // ── prefetch state ───────────────────────────────────────────────────────────
+  const [fetchPhase, setFetchPhase] = useState<'idle' | 'fetching' | 'ready'>('idle');
+  const [fetchProgress, setFetchProgress] = useState(0);
+  const audioUrlsRef = useRef<string[]>([]);          // cached blob URLs, index = sentence
+
+  // ── playback state ───────────────────────────────────────────────────────────
   const [phase, setPhase] = useState<'idle' | 'playing' | 'paused' | 'done'>('idle');
   const [currentSentence, setCurrentSentence] = useState(0);
-  const [rate, setRate] = useState(0.78);
+  const [rate, setRate] = useState(1.0);              // playback-rate multiplier (1x = 0.82 openai speed)
   const [mood, setMood] = useState<string | null>(null);
-  const sentenceRefs = useRef<(HTMLDivElement | null)[]>([]);
-  // Controls whether the sentence loop should keep going
-  const isActiveRef = useRef(false);
-  // Holds the 800ms gap timeout so we can cancel it on stop/pause
-  const gapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Tracks which sentence index the loop is currently on (mutable, no re-render)
-  const idxRef = useRef(0);
 
+  // ── refs ─────────────────────────────────────────────────────────────────────
+  const sentenceRefs  = useRef<(HTMLDivElement | null)[]>([]);
+  const isActiveRef   = useRef(false);
+  const gapTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idxRef        = useRef(0);
+  const currentAudio  = useRef<HTMLAudioElement | null>(null);
+  const rateRef       = useRef(1.0);                 // always-current rate, readable inside closures
+
+  // ── helpers ───────────────────────────────────────────────────────────────────
   const cancelGap = () => {
     if (gapTimerRef.current) { clearTimeout(gapTimerRef.current); gapTimerRef.current = null; }
   };
+  const stopCurrent = () => {
+    currentAudio.current?.pause();
+    currentAudio.current = null;
+    window.speechSynthesis?.cancel();
+  };
 
-  // Auto-scroll the highlighted sentence into view
+  // Auto-scroll highlighted sentence
   useEffect(() => {
     sentenceRefs.current[currentSentence]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [currentSentence]);
 
-  // Preload voices on mount + cleanup on unmount
+  // Prefetch all sentences when isPremium becomes true
   useEffect(() => {
+    if (!isPremium) return;
+    // Pre-warm browser voices (for fallback path)
     window.speechSynthesis?.getVoices();
     const onVC = () => window.speechSynthesis.getVoices();
     window.speechSynthesis?.addEventListener('voiceschanged', onVC);
+
+    runPrefetch();
+
     return () => {
       isActiveRef.current = false;
       cancelGap();
-      window.speechSynthesis?.cancel();
+      stopCurrent();
+      audioUrlsRef.current.forEach(u => { try { URL.revokeObjectURL(u); } catch {} });
+      audioUrlsRef.current = [];
       window.speechSynthesis?.removeEventListener('voiceschanged', onVC);
     };
-  }, []);
+  }, [isPremium]);
 
-  // Speak one sentence, then wait 800ms and speak the next
-  const speakFrom = (startIdx: number, speakRate: number) => {
-    window.speechSynthesis.cancel();
+  const runPrefetch = async () => {
+    const apiKey = (import.meta.env.VITE_OPENAI_API_KEY as string | undefined) ?? '';
+    if (!apiKey) {
+      setFetchPhase('ready'); // straight to browser-TTS fallback
+      return;
+    }
+
+    setFetchPhase('fetching');
+    setFetchProgress(0);
+    const urls: string[] = new Array(MEDITATION_SENTENCES.length);
+
+    try {
+      let done = 0;
+      // Fetch all sentences in parallel for fast loading
+      await Promise.all(MEDITATION_SENTENCES.map(async (text, i) => {
+        const res = await fetch('https://api.openai.com/v1/audio/speech', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ model: 'tts-1-hd', voice: 'shimmer', input: text, speed: 0.82 }),
+        });
+        if (!res.ok) throw new Error(`OpenAI TTS ${res.status}`);
+        const blob = await res.blob();
+        urls[i] = URL.createObjectURL(blob);
+        done++;
+        setFetchProgress(done);
+      }));
+      audioUrlsRef.current = urls;
+    } catch (err) {
+      console.warn('[Nova TTS] falling back to browser SpeechSynthesis:', err);
+      audioUrlsRef.current = []; // empty = use fallback below
+    }
+    setFetchPhase('ready');
+  };
+
+  // ── browser TTS sentence fallback ─────────────────────────────────────────────
+  const fallbackSentence = (i: number, onDone: () => void) => {
+    if (!('speechSynthesis' in window)) { onDone(); return; }
+    const utt = new SpeechSynthesisUtterance(MEDITATION_SENTENCES[i]);
+    utt.rate  = 0.78 * rateRef.current;
+    utt.pitch = 1.0;
+    utt.volume = 1.0;
+    const voice = pickVoice();
+    if (voice) utt.voice = voice;
+    utt.onend = onDone;
+    utt.onerror = (e) => {
+      const err = (e as SpeechSynthesisErrorEvent).error;
+      if (err !== 'interrupted' && err !== 'canceled') { isActiveRef.current = false; setPhase('idle'); }
+    };
+    window.speechSynthesis.speak(utt);
+  };
+
+  // ── core playback loop ────────────────────────────────────────────────────────
+  const playFrom = (startIdx: number) => {
     cancelGap();
+    stopCurrent();
     isActiveRef.current = true;
     idxRef.current = startIdx;
 
-    const speakNext = () => {
+    const playNext = () => {
       if (!isActiveRef.current) return;
       const i = idxRef.current;
+
       if (i >= MEDITATION_SENTENCES.length) {
         isActiveRef.current = false;
         setCurrentSentence(MEDITATION_SENTENCES.length - 1);
@@ -665,44 +740,40 @@ function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolea
 
       setCurrentSentence(i);
 
-      const utt = new SpeechSynthesisUtterance(MEDITATION_SENTENCES[i]);
-      utt.rate = speakRate;
-      utt.pitch = 1.0;
-      utt.volume = 1.0;
-      const voice = pickVoice();
-      if (voice) utt.voice = voice;
-
-      utt.onend = () => {
+      const onDone = () => {
         if (!isActiveRef.current) return;
         idxRef.current = i + 1;
-        // 800ms natural pause between sentences
-        gapTimerRef.current = setTimeout(speakNext, 800);
+        gapTimerRef.current = setTimeout(playNext, 800); // 800ms natural pause
       };
 
-      utt.onerror = (e) => {
-        const err = (e as SpeechSynthesisErrorEvent).error;
-        if (err !== 'interrupted' && err !== 'canceled') {
-          isActiveRef.current = false;
-          setPhase('idle');
-        }
-      };
-
-      window.speechSynthesis.speak(utt);
+      const urls = audioUrlsRef.current;
+      if (urls.length > 0 && urls[i]) {
+        // ── OpenAI audio path ──
+        const audio = new Audio(urls[i]);
+        audio.playbackRate = rateRef.current;
+        currentAudio.current = audio;
+        audio.onended = onDone;
+        audio.onerror = () => fallbackSentence(i, onDone);
+        audio.play().catch(() => fallbackSentence(i, onDone));
+      } else {
+        // ── browser TTS fallback ──
+        fallbackSentence(i, onDone);
+      }
     };
 
-    speakNext();
+    playNext();
   };
 
+  // ── controls ──────────────────────────────────────────────────────────────────
   const handlePlay = () => {
-    if (!('speechSynthesis' in window)) return;
+    if (fetchPhase !== 'ready') return;
     if (phase === 'paused') {
-      // Resume from the sentence that was paused on
-      speakFrom(idxRef.current, rate);
+      playFrom(idxRef.current);
       setPhase('playing');
       return;
     }
     idxRef.current = 0;
-    speakFrom(0, rate);
+    playFrom(0);
     setPhase('playing');
     setMood(null);
   };
@@ -710,30 +781,27 @@ function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolea
   const handlePause = () => {
     isActiveRef.current = false;
     cancelGap();
-    window.speechSynthesis.cancel();
+    stopCurrent();
     setPhase('paused');
-    // idxRef.current already points to the current sentence
   };
 
   const handleStop = () => {
     isActiveRef.current = false;
     cancelGap();
-    window.speechSynthesis.cancel();
+    stopCurrent();
     setPhase('idle');
     setCurrentSentence(0);
     idxRef.current = 0;
   };
 
   const handleSpeedChange = (newRate: number) => {
+    rateRef.current = newRate;
     setRate(newRate);
-    if (phase === 'playing') {
-      const resumeAt = idxRef.current;
-      isActiveRef.current = false;
-      cancelGap();
-      window.speechSynthesis.cancel();
-      setTimeout(() => { speakFrom(resumeAt, newRate); }, 120);
-    }
+    // Update currently playing audio immediately — no need to re-fetch
+    if (currentAudio.current) currentAudio.current.playbackRate = newRate;
   };
+
+  // ── render ────────────────────────────────────────────────────────────────────
 
   if (!isPremium) {
     return (
@@ -746,6 +814,37 @@ function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolea
         <button onClick={openUpgradeModal} className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2">
           <Crown className="w-4 h-4" /> Unlock with Pro
         </button>
+      </div>
+    );
+  }
+
+  // Loading / prefetch screen
+  if (fetchPhase !== 'ready') {
+    const pct = MEDITATION_SENTENCES.length > 0
+      ? (fetchProgress / MEDITATION_SENTENCES.length) * 100
+      : 0;
+    return (
+      <div className="px-5 pb-8 pt-4 text-center">
+        <div className="flex justify-center mb-6">
+          <div className="relative flex items-center justify-center w-36 h-36">
+            <div className="absolute inset-0 rounded-full border border-cyan-400/15 animate-pulse" />
+            <div className="absolute inset-3 rounded-full bg-cyan-500/8 animate-pulse" style={{ animationDuration: '1.8s' }} />
+            <div className="w-20 h-20 rounded-full bg-cyan-500/15 border border-cyan-400/20 flex items-center justify-center">
+              <Mic className="w-8 h-8 text-cyan-400/60 animate-pulse" />
+            </div>
+          </div>
+        </div>
+        <p className="text-white/75 text-sm font-medium mb-1">Nova is preparing your session…</p>
+        <p className="text-white/35 text-xs mb-5">
+          {fetchProgress} / {MEDITATION_SENTENCES.length} sentences ready
+        </p>
+        <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden mx-auto max-w-xs">
+          <div
+            className="h-full bg-cyan-400 rounded-full transition-all duration-300"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <p className="text-white/20 text-[10px] mt-4">Powered by OpenAI · shimmer voice</p>
       </div>
     );
   }
@@ -778,6 +877,11 @@ function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolea
         </div>
       </div>
 
+      {/* Voice label */}
+      <p className="text-center text-white/25 text-[10px] tracking-widest uppercase mb-5">
+        OpenAI · shimmer voice
+      </p>
+
       {/* Controls row */}
       {phase !== 'done' && (
         <div className="flex items-center justify-center gap-4 mb-5">
@@ -801,7 +905,7 @@ function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolea
         </div>
       )}
 
-      {/* Speed control */}
+      {/* Speed control — adjusts Audio.playbackRate in real-time, no re-fetch needed */}
       <div className="flex justify-center gap-2 mb-6">
         {SPEED_OPTIONS.map((s) => (
           <button
@@ -852,8 +956,8 @@ function VoiceVisualization({ isPremium, openUpgradeModal }: { isPremium: boolea
           <p className="text-white/35 text-xs text-center mb-5">There's no wrong answer.</p>
           <div className="flex gap-3">
             {[
-              { emoji: '😌', label: 'Calm',     key: 'calm' },
-              { emoji: '💪', label: 'Stronger', key: 'stronger' },
+              { emoji: '😌', label: 'Calm',      key: 'calm' },
+              { emoji: '💪', label: 'Stronger',  key: 'stronger' },
               { emoji: '😢', label: 'Emotional', key: 'emotional' },
             ].map((opt) => (
               <button
