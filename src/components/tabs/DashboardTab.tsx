@@ -370,6 +370,15 @@ export function DashboardTab() {
 
   // Load quit date + addictions: localStorage immediately, then Supabase
   useEffect(() => {
+    // Safety net: clear stale cache if user switched
+    if (user) {
+      const storedUserId = localStorage.getItem('newu_user_id');
+      if (storedUserId !== user.id) {
+        localStorage.clear();
+        localStorage.setItem('newu_user_id', user.id);
+      }
+    }
+
     const local = getQuitDateFromLocalStorage();
     const localAddictions = getAddictionsFromLocalStorage();
     if (local) {

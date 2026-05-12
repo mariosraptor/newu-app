@@ -33,6 +33,13 @@ export function SavingsTab() {
   const loadData = async () => {
     if (!user) return;
 
+    // Safety net: clear stale cache if user switched
+    const storedUserId = localStorage.getItem('newu_user_id');
+    if (storedUserId !== user.id) {
+      localStorage.clear();
+      localStorage.setItem('newu_user_id', user.id);
+    }
+
     // Load bucket list goals
     const storedGoals = localStorage.getItem('newu_goals');
     if (storedGoals) {

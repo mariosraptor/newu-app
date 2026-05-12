@@ -70,6 +70,12 @@ function AppContent() {
 
   useEffect(() => {
     if (user) {
+      // Detect user switch — clear all cached data so no cross-user leakage
+      const storedUserId = localStorage.getItem('newu_user_id');
+      if (storedUserId !== user.id) {
+        localStorage.clear();
+        localStorage.setItem('newu_user_id', user.id);
+      }
       initRevenueCat(user.id);
       checkOnboardingStatus();
     } else {

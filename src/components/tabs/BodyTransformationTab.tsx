@@ -450,6 +450,13 @@ export function BodyTransformationTab() {
   const loadData = async () => {
     if (!user) return;
 
+    // Safety net: clear stale cache if user switched
+    const storedUserId = localStorage.getItem('newu_user_id');
+    if (storedUserId !== user.id) {
+      localStorage.clear();
+      localStorage.setItem('newu_user_id', user.id);
+    }
+
     const cached = localStorage.getItem('newu_is_premium');
     if (cached === 'true') setIsPremium(true);
 

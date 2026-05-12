@@ -25,6 +25,13 @@ export function ProgressTab() {
   const loadData = async () => {
     if (!user) return;
 
+    // Safety net: clear stale cache if user switched
+    const storedUserId = localStorage.getItem('newu_user_id');
+    if (storedUserId !== user.id) {
+      localStorage.clear();
+      localStorage.setItem('newu_user_id', user.id);
+    }
+
     const { data: journeyData } = await supabase
       .from('journeys')
       .select('quit_datetime')
