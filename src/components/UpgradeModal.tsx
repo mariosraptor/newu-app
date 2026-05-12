@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Crown, X, Check, Sparkles, Zap, Leaf, TrendingUp, Brain, Shield, Star } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Crown, X, Check, Sparkles, Zap, Leaf, TrendingUp, Brain, Shield, Star, RotateCcw } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../contexts/AuthContext';
+import { getOfferings, purchasePackage, restorePurchases } from '../lib/purchases';
 
 interface UpgradeModalProps {
   onClose: () => void;
@@ -19,10 +21,41 @@ const features = [
 
 export function UpgradeModal({ onClose }: UpgradeModalProps) {
   const { user } = useAuth();
-  const [loadingPlan, setLoadingPlan] = useState<'monthly' | 'yearly' | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<'monthly' | 'yearly' | 'restore' | null>(null);
   const [error, setError] = useState('');
+  const [offerings, setOfferings] = useState<any>(null);
+  const isNative = Capacitor.isNativePlatform();
 
-  const handleCheckout = async (plan: 'monthly' | 'yearly') => {
+  useEffect(() => {
+    if (isNative) {
+      getOfferings().then(setOfferings);
+    }
+  }, [isNative]);
+
+  const handlePurchaseSuccess = () => {
+    localStorage.setItem('newu_is_premium', 'true');
+    window.location.reload();
+  };
+
+  const handleNativePurchase = async (plan: 'monthly' | 'yearly') => {
+    if (!offerings) return;
+    setLoadingPlan(plan);
+    setError('');
+    try {
+      const pkg = plan === 'monthly'
+        ? offerings.monthly
+        : offerings.annual;
+      if (!pkg) throw new Error('Plan not available');
+      const isPro = await purchasePackage(pkg);
+      if (isPro) handlePurchaseSuccess();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Purchase failed. Please try again.');
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
+  const handleStripeCheckout = async (plan: 'monthly' | 'yearly') => {
     if (!user) return;
     setLoadingPlan(plan);
     setError('');
@@ -45,6 +78,31 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
       window.location.href = data.url;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setLoadingPlan(null);
+    }
+  };
+
+  const handleCheckout = (plan: 'monthly' | 'yearly') => {
+    if (isNative) {
+      handleNativePurchase(plan);
+    } else {
+      handleStripeCheckout(plan);
+    }
+  };
+
+  const handleRestore = async () => {
+    setLoadingPlan('restore');
+    setError('');
+    try {
+      const isPro = await restorePurchases();
+      if (isPro) {
+        handlePurchaseSuccess();
+      } else {
+        setError('No active purchases found.');
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Restore failed. Please try again.');
+    } finally {
       setLoadingPlan(null);
     }
   };
@@ -130,7 +188,7 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
               {loadingPlan === 'monthly' ? (
                 <span className="flex items-center justify-center gap-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Redirecting…
+                  {isNative ? 'Processing…' : 'Redirecting…'}
                 </span>
               ) : (
                 'Start Monthly Trial — $6.99/mo'
@@ -174,7 +232,7 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
               {loadingPlan === 'yearly' ? (
                 <span className="flex items-center justify-center gap-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Redirecting…
+                  {isNative ? 'Processing…' : 'Redirecting…'}
                 </span>
               ) : (
                 <span className="flex items-center justify-center gap-2">
@@ -186,12 +244,31 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
           </div>
         </div>
 
-        {/* Error & fine print */}
+        {/* Error, restore & fine print */}
         <div className="px-6 pb-6 pt-1">
           {error && (
             <div className="mb-3 px-4 py-2.5 bg-red-500/15 border border-red-500/30 rounded-xl text-red-400 text-sm text-center">
               {error}
             </div>
+          )}
+          {isNative && (
+            <button
+              onClick={handleRestore}
+              disabled={loadingPlan !== null}
+              className="w-full mb-3 py-2.5 bg-white/5 hover:bg-white/10 border border-white/15 text-white/60 hover:text-white/80 rounded-xl text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loadingPlan === 'restore' ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/60 border-t-transparent rounded-full animate-spin" />
+                  Restoring…
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  Restore Purchases
+                </>
+              )}
+            </button>
           )}
           <p className="text-center text-white/35 text-xs">
             7 days free on both plans · No charge until trial ends · Cancel anytime

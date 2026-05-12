@@ -10,6 +10,7 @@ import { SplashScreen } from './components/SplashScreen';
 import { MainApp } from './components/MainApp';
 import { UpgradeModal } from './components/UpgradeModal';
 import { supabase } from './lib/supabase';
+import { initRevenueCat } from './lib/purchases';
 
 function WelcomeProBanner({ onDismiss }: { onDismiss: () => void }) {
   return (
@@ -69,6 +70,7 @@ function AppContent() {
 
   useEffect(() => {
     if (user) {
+      initRevenueCat(user.id);
       checkOnboardingStatus();
     } else {
       setHasCompletedOnboarding(null);
