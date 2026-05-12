@@ -180,7 +180,7 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
                 </div>
                 <div className="text-white/60 text-xs uppercase tracking-wider mb-1">Monthly</div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-white text-3xl font-bold">$6.99</span>
+                  <span className="text-white text-3xl font-bold">$7.99</span>
                   <span className="text-white/50 text-sm">/ month</span>
                 </div>
               </div>
@@ -203,7 +203,7 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
                   {isNative ? 'Processing…' : 'Redirecting…'}
                 </span>
               ) : (
-                'Start Monthly Trial — $6.99/mo'
+                'Start Monthly Trial — $7.99/mo'
               )}
             </button>
           </div>
@@ -214,7 +214,7 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
             <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full shadow-lg shadow-yellow-500/30">
                 <Star className="w-3 h-3 text-white fill-white" />
-                <span className="text-white text-[11px] font-bold tracking-wide uppercase">Best Value · Save 40%</span>
+                <span className="text-white text-[11px] font-bold tracking-wide uppercase">Best Value · Save 27%</span>
                 <Star className="w-3 h-3 text-white fill-white" />
               </div>
             </div>
@@ -223,10 +223,10 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
               <div>
                 <div className="text-white/60 text-xs uppercase tracking-wider mb-1">Yearly</div>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-white text-3xl font-bold">$49.99</span>
+                  <span className="text-white text-3xl font-bold">$69.99</span>
                   <span className="text-white/50 text-sm">/ year</span>
                 </div>
-                <div className="text-yellow-400 text-xs font-medium mt-0.5">$4.17 / month · save $33.89</div>
+                <div className="text-yellow-400 text-xs font-medium mt-0.5">$5.83 / month · save $25.89</div>
               </div>
               <div className="text-right">
                 <div className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
@@ -249,7 +249,7 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
               ) : (
                 <span className="flex items-center justify-center gap-2">
                   <Star className="w-4 h-4 fill-white" />
-                  Start Yearly Trial — $49.99/yr
+                  Start Yearly Trial — $69.99/yr
                 </span>
               )}
             </button>
