@@ -125,6 +125,7 @@ function AuthForm({ defaultMode, onBack }: { defaultMode: 'signup' | 'signin'; o
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
@@ -136,11 +137,15 @@ function AuthForm({ defaultMode, onBack }: { defaultMode: 'signup' | 'signin'; o
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccessMessage('');
     setLoading(true);
     try {
       if (isSignUp) {
         if (!displayName.trim()) { setError('Please enter your name'); return; }
-        await signUp(email, password, displayName);
+        const { needsConfirmation } = await signUp(email, password, displayName);
+        if (needsConfirmation) {
+          setSuccessMessage(`Check your email! We sent a verification link to ${email}. Click it to activate your account.`);
+        }
       } else {
         await signIn(email, password);
       }
@@ -228,6 +233,7 @@ function AuthForm({ defaultMode, onBack }: { defaultMode: 'signup' | 'signin'; o
                 )}
               </div>
               {error && <div className="p-3 bg-red-500/15 border border-red-500/30 rounded-xl text-sm text-red-300">{error}</div>}
+              {successMessage && <div className="p-3 bg-green-500/15 border border-green-500/30 rounded-xl text-sm text-green-300">✅ {successMessage}</div>}
               <button type="submit" disabled={loading} className="w-full py-4 bg-blue-500 hover:bg-blue-400 disabled:opacity-50 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/25 mt-2">
                 {loading ? 'Please wait…' : isSignUp ? 'Begin Your Journey' : 'Welcome Back'}
               </button>

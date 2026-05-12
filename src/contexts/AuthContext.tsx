@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName: string) => Promise<{ needsConfirmation: boolean }>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -31,24 +31,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, displayName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+  const signUp = async (email: string, password: string, displayName: string): Promise<{ needsConfirmation: boolean }> => {
+    const { data, error } = await supabase.auth.signUp({ email, password });
 
-    if (error) throw error;
+    // Supabase returns a fake user with empty identities when the email is already registered
+    if (data.user && data.user.identities?.length === 0) {
+      throw new Error('An account with this email already exists. Try signing in instead.');
+    }
 
-    if (data.user) {
+    // Real error — not a confirmation-flow response
+    if (error && !error.message.toLowerCase().includes('confirmation')) {
+      throw error;
+    }
+
+    // Create profile only for genuinely new users
+    if (data.user && data.user.identities && data.user.identities.length > 0) {
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
-          id: data.user.id,
-          display_name: displayName,
-        });
-
-      if (profileError) throw profileError;
+        .insert({ id: data.user.id, display_name: displayName });
+      if (profileError) console.error('[signUp] profile insert failed:', profileError);
     }
+
+    return { needsConfirmation: !data.session };
   };
 
   const signIn = async (email: string, password: string) => {
