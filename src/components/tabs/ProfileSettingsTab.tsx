@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { User, LogOut, Shield, Bell, Crown, Camera, Save, Share2, Copy } from 'lucide-react';
+import { User, LogOut, Shield, Bell, Crown, Camera, Save, Share2, Copy, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useStealth } from '../../contexts/StealthContext';
@@ -26,6 +26,8 @@ export function ProfileSettingsTab() {
   const [displayName, setDisplayName] = useState('');
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [personalDetails, setPersonalDetails] = useState<PersonalDetails>({
     firstName: '',
     lastName: '',
@@ -213,6 +215,18 @@ export function ProfileSettingsTab() {
     window.location.reload();
   };
 
+  const handleDeleteAccount = async () => {
+    setDeleteLoading(true);
+    try {
+      await supabase.rpc('delete_user');
+    } catch (err) {
+      console.error('[DeleteAccount] rpc error:', err);
+    } finally {
+      localStorage.clear();
+      window.location.reload();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center bg-[#001F3F]">
@@ -222,6 +236,43 @@ export function ProfileSettingsTab() {
   }
 
   return (
+    <>
+    {showDeleteConfirm && (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[80] p-6">
+        <div className="bg-gradient-to-b from-[#1a0a0a] to-[#200808] border border-red-500/30 rounded-3xl p-7 max-w-sm w-full text-center shadow-2xl">
+          <div className="w-16 h-16 bg-red-500/20 rounded-2xl flex items-center justify-center mx-auto mb-5">
+            <Trash2 className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-semibold text-white mb-2">Delete Account?</h2>
+          <p className="text-white/60 text-sm leading-relaxed mb-6">
+            This will permanently delete your account and all your data. This action cannot be undone.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={handleDeleteAccount}
+              disabled={deleteLoading}
+              className="w-full py-3.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white rounded-2xl font-semibold transition-all flex items-center justify-center gap-2"
+            >
+              {deleteLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                'Yes, Delete My Account'
+              )}
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              disabled={deleteLoading}
+              className="w-full py-3 text-white/60 hover:text-white/80 font-medium transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="flex-1 overflow-y-auto bg-gradient-to-b from-[#001F3F] to-[#003366] pb-20">
       <div className="max-w-2xl mx-auto px-4 py-8">
         <div className="text-center mb-8">
@@ -537,6 +588,21 @@ export function ProfileSettingsTab() {
             </button>
           </div>
 
+          <div className="bg-red-950/40 backdrop-blur-lg rounded-2xl border border-red-500/20 overflow-hidden">
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full p-4 flex items-center gap-3 hover:bg-red-500/10 transition-all"
+            >
+              <div className="w-10 h-10 bg-red-500/20 rounded-xl flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-500" />
+              </div>
+              <div className="text-left">
+                <div className="text-red-500 font-medium">Delete Account</div>
+                <div className="text-white/50 text-sm">Permanently remove your account and data</div>
+              </div>
+            </button>
+          </div>
+
           <div className="text-center text-white/40 text-xs mt-8">
             <p>NewU v1.0 - Neuro-Optimization Suite</p>
             <p className="mt-1">Built for performance engineers</p>
@@ -544,5 +610,6 @@ export function ProfileSettingsTab() {
         </div>
       </div>
     </div>
+    </>
   );
 }

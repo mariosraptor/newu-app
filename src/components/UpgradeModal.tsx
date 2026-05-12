@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Crown, X, Check, Sparkles, Zap, Leaf, TrendingUp, Brain, Shield, Star, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Crown, X, Check, Sparkles, Zap, Leaf, TrendingUp, Brain, Shield, Star, RotateCcw, RefreshCw } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '../contexts/AuthContext';
-import { getOfferings, purchasePackage, restorePurchases } from '../lib/purchases';
+import { initRevenueCat, getOfferings, purchasePackage, restorePurchases } from '../lib/purchases';
 
 interface UpgradeModalProps {
   onClose: () => void;
@@ -23,47 +23,87 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
   const { user } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<'monthly' | 'yearly' | 'restore' | null>(null);
   const [offerings, setOfferings] = useState<any>(null);
+  const [offeringsLoading, setOfferingsLoading] = useState(false);
   const isNative = Capacitor.isNativePlatform();
 
-  useEffect(() => {
+  const loadOfferings = useCallback(async () => {
     if (!isNative) return;
-    getOfferings()
-      .then((o) => { if (o) setOfferings(o); })
-      .catch((err) => console.error('[RevenueCat] getOfferings failed:', err));
-  }, [isNative]);
+    console.log('[RevenueCat] loadOfferings: starting...');
+    setOfferingsLoading(true);
+    try {
+      if (user) {
+        console.log('[RevenueCat] loadOfferings: ensuring configured for user', user.id);
+        await initRevenueCat(user.id);
+        console.log('[RevenueCat] loadOfferings: initRevenueCat complete');
+      } else {
+        console.warn('[RevenueCat] loadOfferings: no user — skipping configure');
+      }
+      console.log('[RevenueCat] loadOfferings: calling getOfferings...');
+      const o = await getOfferings();
+      console.log('[RevenueCat] loadOfferings: result =', o);
+      if (o) {
+        setOfferings(o);
+        console.log('[RevenueCat] loadOfferings: monthly pkg =', o.monthly, '| annual pkg =', o.annual);
+      } else {
+        console.warn('[RevenueCat] loadOfferings: returned null');
+      }
+    } catch (err) {
+      console.error('[RevenueCat] loadOfferings: error =', err);
+    } finally {
+      setOfferingsLoading(false);
+      console.log('[RevenueCat] loadOfferings: done');
+    }
+  }, [isNative, user]);
+
+  useEffect(() => {
+    loadOfferings();
+  }, [loadOfferings]);
 
   const handlePurchaseSuccess = () => {
+    console.log('[RevenueCat] handlePurchaseSuccess: setting premium + reloading');
     localStorage.setItem('newu_is_premium', 'true');
     window.location.reload();
   };
 
   const handleNativePurchase = async (plan: 'monthly' | 'yearly') => {
+    console.log('[RevenueCat] handleNativePurchase: plan =', plan);
     setLoadingPlan(plan);
     try {
       let current = offerings;
+      console.log('[RevenueCat] handleNativePurchase: current offerings =', current);
+
       if (!current) {
-        current = await getOfferings().catch((err) => {
-          console.error('[RevenueCat] getOfferings retry failed:', err);
-          return null;
-        });
+        console.log('[RevenueCat] handleNativePurchase: offerings null — re-initializing...');
+        if (user) {
+          await initRevenueCat(user.id);
+          console.log('[RevenueCat] handleNativePurchase: re-init complete');
+        }
+        console.log('[RevenueCat] handleNativePurchase: retrying getOfferings...');
+        current = await getOfferings();
+        console.log('[RevenueCat] handleNativePurchase: retry result =', current);
         if (current) setOfferings(current);
       }
 
       if (!current) {
-        console.error('[RevenueCat] No offerings available — cannot complete purchase');
+        console.error('[RevenueCat] handleNativePurchase: no offerings after retry — aborting');
         return;
       }
 
       const pkg = plan === 'monthly' ? current.monthly : current.annual;
+      console.log('[RevenueCat] handleNativePurchase: package for', plan, '=', pkg);
+      console.log('[RevenueCat] handleNativePurchase: all available packages =', Object.keys(current));
+
       if (!pkg) {
-        console.error('[RevenueCat] Package not found in offerings for plan:', plan);
+        console.error('[RevenueCat] handleNativePurchase: package not found for plan', plan);
         return;
       }
 
+      console.log('[RevenueCat] handleNativePurchase: calling purchasePackage...');
       const isPro = await purchasePackage(pkg);
+      console.log('[RevenueCat] handleNativePurchase: isPro =', isPro);
       if (isPro) handlePurchaseSuccess();
     } catch (err) {
-      console.error('[RevenueCat] Purchase failed:', err);
+      console.error('[RevenueCat] handleNativePurchase: error =', err);
     } finally {
       setLoadingPlan(null);
     }
@@ -96,6 +136,7 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
   };
 
   const handleCheckout = (plan: 'monthly' | 'yearly') => {
+    console.log('[UpgradeModal] handleCheckout: plan =', plan, '| isNative =', isNative);
     if (isNative) {
       handleNativePurchase(plan);
     } else {
@@ -104,16 +145,18 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
   };
 
   const handleRestore = async () => {
+    console.log('[RevenueCat] handleRestore: starting...');
     setLoadingPlan('restore');
     try {
       const isPro = await restorePurchases();
+      console.log('[RevenueCat] handleRestore: isPro =', isPro);
       if (isPro) {
         handlePurchaseSuccess();
       } else {
-        console.log('[RevenueCat] Restore: no active purchases found');
+        console.log('[RevenueCat] handleRestore: no active purchases found');
       }
     } catch (err) {
-      console.error('[RevenueCat] Restore failed:', err);
+      console.error('[RevenueCat] handleRestore: error =', err);
     } finally {
       setLoadingPlan(null);
     }
@@ -170,6 +213,25 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
 
         {/* Plan cards */}
         <div className="px-6 py-4 space-y-3">
+
+          {/* Loading indicator while fetching offerings on native */}
+          {isNative && offeringsLoading && (
+            <div className="flex items-center justify-center gap-2 py-2 text-white/40 text-xs">
+              <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
+              Loading plans from App Store…
+            </div>
+          )}
+
+          {/* Retry button if offerings failed to load on native */}
+          {isNative && !offeringsLoading && !offerings && (
+            <button
+              onClick={loadOfferings}
+              className="w-full flex items-center justify-center gap-2 py-2 text-white/50 hover:text-white/80 text-xs transition-all"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Could not reach App Store — tap to retry
+            </button>
+          )}
 
           {/* Monthly card */}
           <div className="relative bg-white/5 border border-white/15 rounded-2xl p-5 hover:bg-white/8 transition-all">
