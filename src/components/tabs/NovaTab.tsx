@@ -230,7 +230,7 @@ export function NovaTab() {
       let fullText = '';
 
       const stream = client.messages.stream({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 1024,
         system: buildSystemPrompt(ctx),
         messages: apiMessages,

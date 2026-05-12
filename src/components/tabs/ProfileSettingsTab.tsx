@@ -604,8 +604,8 @@ export function ProfileSettingsTab() {
           </div>
 
           <div className="text-center text-white/40 text-xs mt-8">
-            <p>NewU v1.0 - Neuro-Optimization Suite</p>
-            <p className="mt-1">Built for performance engineers</p>
+            <p>NewU v2.0</p>
+            <p className="mt-1">Built for an addiction free life. Break free.</p>
           </div>
         </div>
       </div>
