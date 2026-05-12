@@ -1152,21 +1152,6 @@ export function TreatmentsTab() {
       <div className="px-5 pt-8 pb-6 text-center">
         <h1 className="text-3xl font-light text-white mb-1">Treatment Library</h1>
         <p className="text-white/45 text-sm">Science-backed recovery protocols</p>
-        {/* Debug: tap to toggle premium for testing */}
-        <button
-          onClick={() => {
-            const next = !isPremium;
-            setIsPremium(next);
-            localStorage.setItem('newu_is_premium', String(next));
-          }}
-          className={`mt-3 px-3 py-1 rounded-full text-[10px] font-semibold border transition-all ${
-            isPremium
-              ? 'bg-yellow-500/15 border-yellow-500/25 text-yellow-400'
-              : 'bg-red-500/15 border-red-500/25 text-red-400'
-          }`}
-        >
-          {isPremium ? '✓ Pro active' : '✗ Free — tap to unlock'} (debug)
-        </button>
       </div>
 
       {/* ── FREE: Getting Started ────────────────────────────── */}
