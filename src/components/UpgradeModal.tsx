@@ -22,14 +22,14 @@ const features = [
 export function UpgradeModal({ onClose }: UpgradeModalProps) {
   const { user } = useAuth();
   const [loadingPlan, setLoadingPlan] = useState<'monthly' | 'yearly' | 'restore' | null>(null);
-  const [error, setError] = useState('');
   const [offerings, setOfferings] = useState<any>(null);
   const isNative = Capacitor.isNativePlatform();
 
   useEffect(() => {
-    if (isNative) {
-      getOfferings().then(setOfferings);
-    }
+    if (!isNative) return;
+    getOfferings()
+      .then((o) => { if (o) setOfferings(o); })
+      .catch((err) => console.error('[RevenueCat] getOfferings failed:', err));
   }, [isNative]);
 
   const handlePurchaseSuccess = () => {
@@ -38,18 +38,32 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
   };
 
   const handleNativePurchase = async (plan: 'monthly' | 'yearly') => {
-    if (!offerings) return;
     setLoadingPlan(plan);
-    setError('');
     try {
-      const pkg = plan === 'monthly'
-        ? offerings.monthly
-        : offerings.annual;
-      if (!pkg) throw new Error('Plan not available');
+      let current = offerings;
+      if (!current) {
+        current = await getOfferings().catch((err) => {
+          console.error('[RevenueCat] getOfferings retry failed:', err);
+          return null;
+        });
+        if (current) setOfferings(current);
+      }
+
+      if (!current) {
+        console.error('[RevenueCat] No offerings available — cannot complete purchase');
+        return;
+      }
+
+      const pkg = plan === 'monthly' ? current.monthly : current.annual;
+      if (!pkg) {
+        console.error('[RevenueCat] Package not found in offerings for plan:', plan);
+        return;
+      }
+
       const isPro = await purchasePackage(pkg);
       if (isPro) handlePurchaseSuccess();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Purchase failed. Please try again.');
+    } catch (err) {
+      console.error('[RevenueCat] Purchase failed:', err);
     } finally {
       setLoadingPlan(null);
     }
@@ -58,7 +72,6 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
   const handleStripeCheckout = async (plan: 'monthly' | 'yearly') => {
     if (!user) return;
     setLoadingPlan(plan);
-    setError('');
 
     const priceId = plan === 'monthly' ? MONTHLY_PRICE_ID : YEARLY_PRICE_ID;
 
@@ -76,8 +89,8 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to start checkout');
       window.location.href = data.url;
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+    } catch (err) {
+      console.error('[Stripe] Checkout failed:', err);
       setLoadingPlan(null);
     }
   };
@@ -92,16 +105,15 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
 
   const handleRestore = async () => {
     setLoadingPlan('restore');
-    setError('');
     try {
       const isPro = await restorePurchases();
       if (isPro) {
         handlePurchaseSuccess();
       } else {
-        setError('No active purchases found.');
+        console.log('[RevenueCat] Restore: no active purchases found');
       }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Restore failed. Please try again.');
+    } catch (err) {
+      console.error('[RevenueCat] Restore failed:', err);
     } finally {
       setLoadingPlan(null);
     }
@@ -244,13 +256,8 @@ export function UpgradeModal({ onClose }: UpgradeModalProps) {
           </div>
         </div>
 
-        {/* Error, restore & fine print */}
+        {/* Restore & fine print */}
         <div className="px-6 pb-6 pt-1">
-          {error && (
-            <div className="mb-3 px-4 py-2.5 bg-red-500/15 border border-red-500/30 rounded-xl text-red-400 text-sm text-center">
-              {error}
-            </div>
-          )}
           {isNative && (
             <button
               onClick={handleRestore}
