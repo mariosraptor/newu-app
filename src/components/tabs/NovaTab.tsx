@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, Sparkles, Crown } from 'lucide-react';
-import Anthropic from '@anthropic-ai/sdk';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useUpgrade } from '../../contexts/UpgradeContext';
@@ -11,7 +10,7 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  timestamp: string; // ISO string so it survives JSON round-trip
+  timestamp: string;
 }
 
 interface UserContext {
@@ -25,30 +24,6 @@ interface UserContext {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const HISTORY_KEY = 'newu_nova_history';
-const MSG_COUNT_KEY = 'nova_message_count';
-const MSG_DATE_KEY  = 'nova_message_date';
-const FREE_LIMIT    = 10;
-
-function getTodayISO() { return new Date().toISOString().slice(0, 10); }
-
-function loadTodayCount(): number {
-  try {
-    if (localStorage.getItem(MSG_DATE_KEY) !== getTodayISO()) return 0;
-    return parseInt(localStorage.getItem(MSG_COUNT_KEY) || '0', 10);
-  } catch { return 0; }
-}
-
-function incrementTodayCount(): number {
-  try {
-    const today = getTodayISO();
-    const stored = localStorage.getItem(MSG_DATE_KEY);
-    const prev = stored === today ? parseInt(localStorage.getItem(MSG_COUNT_KEY) || '0', 10) : 0;
-    const next = prev + 1;
-    localStorage.setItem(MSG_DATE_KEY, today);
-    localStorage.setItem(MSG_COUNT_KEY, String(next));
-    return next;
-  } catch { return 0; }
-}
 
 function loadUserContext(): UserContext {
   let firstName = '';
@@ -118,7 +93,6 @@ function loadHistory(): Message[] {
 
 function saveHistory(messages: Message[]) {
   try {
-    // Keep the last 100 messages to avoid quota issues
     const trimmed = messages.slice(-100);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
   } catch {}
@@ -129,11 +103,12 @@ function saveHistory(messages: Message[]) {
 export function NovaTab() {
   const { user } = useAuth();
   const { openUpgradeModal } = useUpgrade();
-  const [isPremium, setIsPremium] = useState(false);
-  const [todayCount, setTodayCount] = useState(loadTodayCount);
+  const [isPremium, setIsPremium] = useState(
+    () => localStorage.getItem('newu_is_premium') === 'true'
+  );
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -143,11 +118,14 @@ export function NovaTab() {
 
   const checkPremium = async () => {
     if (!user) return;
-    const { data } = await supabase.from('subscription_status').select('is_premium').eq('user_id', user.id).maybeSingle();
+    const { data } = await supabase
+      .from('subscription_status')
+      .select('is_premium')
+      .eq('user_id', user.id)
+      .maybeSingle();
     setIsPremium(data?.is_premium || false);
   };
 
-  // Initialise: load persisted history or show welcome
   useEffect(() => {
     const history = loadHistory();
     if (history.length > 0) {
@@ -164,19 +142,15 @@ export function NovaTab() {
     }
   }, []);
 
-  // Auto-scroll on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input.trim() || isStreaming) return;
-    if (!isPremium && todayCount >= FREE_LIMIT) return;
+    if (!input.trim() || isLoading) return;
 
     const userText = input.trim();
     setInput('');
-    const newCount = incrementTodayCount();
-    setTodayCount(newCount);
 
     const userMsg: Message = {
       id: `u-${Date.now()}`,
@@ -185,15 +159,13 @@ export function NovaTab() {
       timestamp: new Date().toISOString(),
     };
 
-    // Build API history: exclude the static welcome message, include all real turns
-    const apiMessages: Anthropic.MessageParam[] = [
+    const apiMessages = [
       ...messages
         .filter((m) => m.id !== 'welcome' && m.content.trim().length > 0)
         .map((m) => ({ role: m.role, content: m.content })),
       { role: 'user', content: userText },
     ];
 
-    // Add the user message and an empty Nova placeholder
     const novaId = `a-${Date.now()}`;
     const novaPlaceholder: Message = {
       id: novaId,
@@ -204,72 +176,39 @@ export function NovaTab() {
 
     const withUserMsg = [...messages, userMsg, novaPlaceholder];
     setMessages(withUserMsg);
-    setIsStreaming(true);
-
-    const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY as string | undefined;
-
-    if (!apiKey) {
-      const errMsg: Message = {
-        ...novaPlaceholder,
-        content: "I can't connect right now — VITE_ANTHROPIC_API_KEY is not set. Add it to your .env file and restart.",
-      };
-      const final = withUserMsg.map((m) => (m.id === novaId ? errMsg : m));
-      setMessages(final);
-      saveHistory(final);
-      setIsStreaming(false);
-      return;
-    }
+    setIsLoading(true);
 
     try {
-      const client = new Anthropic({
-        apiKey,
-        dangerouslyAllowBrowser: true,
-      });
-
       const ctx = loadUserContext();
-      let fullText = '';
-
-      const stream = client.messages.stream({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1024,
-        system: buildSystemPrompt(ctx),
-        messages: apiMessages,
+      const res = await fetch('/.netlify/functions/nova-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: apiMessages, system: buildSystemPrompt(ctx) }),
       });
 
-      for await (const event of stream) {
-        if (
-          event.type === 'content_block_delta' &&
-          event.delta.type === 'text_delta'
-        ) {
-          fullText += event.delta.text;
-          setMessages((prev) =>
-            prev.map((m) => (m.id === novaId ? { ...m, content: fullText } : m))
-          );
-        }
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || `HTTP ${res.status}`);
       }
 
-      // Persist after streaming completes
+      const content = data.content?.[0]?.text || "I'm here. What's on your mind?";
       const finalMessages = withUserMsg.map((m) =>
-        m.id === novaId ? { ...m, content: fullText || "I'm here. What's on your mind?" } : m
+        m.id === novaId ? { ...m, content } : m
       );
       setMessages(finalMessages);
       saveHistory(finalMessages);
     } catch (err) {
       console.error('Nova error:', err);
-      const errorContent =
-        err instanceof Anthropic.AuthenticationError
-          ? 'Invalid API key. Check your VITE_ANTHROPIC_API_KEY in .env.'
-          : err instanceof Anthropic.RateLimitError
-          ? "I'm getting a lot of messages right now. Give me a moment and try again."
-          : "Something went wrong on my end. Try again in a second.";
-
       const errFinal = withUserMsg.map((m) =>
-        m.id === novaId ? { ...m, content: errorContent } : m
+        m.id === novaId
+          ? { ...m, content: "Something went wrong on my end. Try again in a second." }
+          : m
       );
       setMessages(errFinal);
       saveHistory(errFinal);
     } finally {
-      setIsStreaming(false);
+      setIsLoading(false);
       inputRef.current?.focus();
     }
   };
@@ -303,7 +242,6 @@ export function NovaTab() {
               key={message.id}
               className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              {/* Nova avatar */}
               {message.role === 'assistant' && (
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl flex items-center justify-center flex-shrink-0 mb-1 shadow-sm shadow-blue-500/20">
                   <Sparkles className="w-4 h-4 text-white" />
@@ -320,7 +258,6 @@ export function NovaTab() {
                 {message.content ? (
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
                 ) : (
-                  /* Typing indicator */
                   <div className="flex items-center gap-1 py-1">
                     <span className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                     <span className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -344,36 +281,28 @@ export function NovaTab() {
       <div className="flex-shrink-0 bg-[#001F3F]/95 backdrop-blur-lg border-t border-white/10 px-4 py-4 pb-24">
         <div className="max-w-2xl mx-auto">
 
-          {/* Free limit reached banner */}
-          {!isPremium && todayCount >= FREE_LIMIT ? (
+          {!isPremium ? (
             <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 text-center">
-              <p className="text-white/80 text-sm font-medium mb-1">Daily limit reached</p>
+              <p className="text-white/80 text-sm font-medium mb-1">Nova is a Pro feature</p>
               <p className="text-white/50 text-xs mb-4 leading-relaxed">
-                You've used your {FREE_LIMIT} free messages today. Upgrade to NewU Pro for unlimited Nova conversations.
+                Upgrade to NewU Pro for unlimited conversations with Nova, your AI recovery companion.
               </p>
               <button
                 onClick={openUpgradeModal}
                 className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-white rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2"
               >
-                <Crown className="w-4 h-4" /> Upgrade to Pro — Unlimited Nova
+                <Crown className="w-4 h-4" /> Upgrade to Pro — Unlock Nova
               </button>
             </div>
           ) : (
             <>
-              {/* Free usage counter */}
-              {!isPremium && (
-                <div className="flex justify-end mb-2">
-                  <span className="text-white/30 text-[10px]">{FREE_LIMIT - todayCount} free messages remaining today</span>
-                </div>
-              )}
-
               {/* Quick actions */}
               <div className="flex gap-2 mb-3 overflow-x-auto pb-1 scrollbar-hide">
                 {quickActions.map((action) => (
                   <button
                     key={action.label}
                     onClick={() => { setInput(action.query); inputRef.current?.focus(); }}
-                    disabled={isStreaming}
+                    disabled={isLoading}
                     className="px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white/80 text-xs rounded-full whitespace-nowrap transition-all border border-white/10 flex-shrink-0"
                   >
                     {action.label}
@@ -390,12 +319,12 @@ export function NovaTab() {
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                   placeholder="Talk to Nova..."
-                  disabled={isStreaming}
+                  disabled={isLoading}
                   className="flex-1 px-4 py-3 bg-white/10 border border-white/20 rounded-2xl text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-400/60 disabled:opacity-50 transition-colors"
                 />
                 <button
                   onClick={sendMessage}
-                  disabled={!input.trim() || isStreaming}
+                  disabled={!input.trim() || isLoading}
                   className="w-12 h-12 flex items-center justify-center bg-blue-500 hover:bg-blue-400 disabled:bg-white/10 disabled:text-white/30 text-white rounded-2xl transition-all flex-shrink-0"
                 >
                   <Send className="w-4 h-4" />
